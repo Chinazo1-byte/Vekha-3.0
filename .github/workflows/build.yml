@@ -21,10 +21,9 @@ jobs:
         run: npm install
 
       - name: Build Windows
-        run: npm run build
+        run: npx electron-builder --win --x64 -c.publish=never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          ELECTRON_BUILDER_NO_PUBLISH: always
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
@@ -44,13 +43,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Fix app-builder permissions
-        run: chmod +x node_modules/app-builder-bin/linux/x64/app-builder
+      - name: Fix permissions
+        run: find node_modules/app-builder-bin -type f -name "app-builder" -exec chmod +x {} \;
 
       - name: Build Linux
-        run: npm run build:linux
-        env:
-          ELECTRON_BUILDER_NO_PUBLISH: always
+        run: npx electron-builder --linux --x64 -c.publish=never
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4

@@ -20,7 +20,7 @@
   "build": {
     "appId": "ru.vekha.app",
     "productName": "Веха",
-    "copyright": "© 2025 Веха",
+    "publish": null,
     "directories": {
       "output": "dist"
     },
