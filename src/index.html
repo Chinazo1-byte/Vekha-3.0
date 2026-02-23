@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self';">
+  <title>Веха</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+
+<!-- ── Splash-экран ──────────────────────────────────────────────────────── -->
+<div id="splash-screen">
+  <video id="splash-video" autoplay playsinline>
+    <source src="assets/splash.mp4" type="video/mp4">
+  </video>
+</div>
+
+<!-- ── Основной интерфейс ────────────────────────────────────────────────── -->
+<div id="app" style="display:none">
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo.jpg" class="brand-mark" style="object-fit:cover;border-radius:10px;">
+      <div>
+        <div class="brand-name">Веха</div>
+        <div class="brand-sub">конструктор занятий</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a class="nav-item active" data-page="students">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><circle cx="8" cy="7" r="3.5" stroke="currentColor" stroke-width="1.5"/><path d="M2 17c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="15" cy="8" r="2.5" stroke="currentColor" stroke-width="1.3"/><path d="M18 16c0-2.21-1.343-3.5-3-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Ученики
+      </a>
+      <a class="nav-item" data-page="exercises">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="3" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="3" y="11" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M14 11v6M11 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Упражнения
+      </a>
+      <a class="nav-item" data-page="sessions">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M4 6h8M4 14h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="15" cy="14" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M15 13v1.5l1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Занятия
+      </a>
+      <a class="nav-item" data-page="diagnostics">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="none"><path d="M10 3v14M5 8l5-5 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 17h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 12h2.5l1.5 3 2-6 1.5 3H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Диагностики
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <!-- Экспорт / импорт библиотеки -->
+      <button id="btn-export-library" class="sidebar-action-btn">
+        <svg viewBox="0 0 20 20" fill="none" width="17" height="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="14" width="14" height="3" rx="1"/></svg>
+        Экспорт библиотеки
+      </button>
+      <button id="btn-import-library" class="sidebar-action-btn">
+        <svg viewBox="0 0 20 20" fill="none" width="17" height="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 17V7M6 11l4-4 4 4"/><rect x="3" y="3" width="14" height="3" rx="1"/></svg>
+        Импорт библиотеки
+      </button>
+      <!-- Звук -->
+      <button id="sound-toggle-btn" class="sidebar-action-btn">
+        <svg id="sound-icon" viewBox="0 0 20 20" fill="none" width="17" height="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3,7 7,7 11,3 11,17 7,13 3,13"/>
+          <path d="M13.5 7a4 4 0 0 1 0 6" id="sound-wave-1"/>
+        </svg>
+        <span id="sound-label">Звук включён</span>
+      </button>
+      <!-- Выход -->
+      <button id="btn-quit" class="sidebar-action-btn sidebar-quit-btn">
+        <svg viewBox="0 0 20 20" fill="none" width="17" height="17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h4"/>
+          <path d="M13 14l3-4-3-4M7 10h9"/>
+        </svg>
+        Выйти из программы
+      </button>
+      <div class="sidebar-version">Веха v1.0</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="page active" id="page-students"></div>
+    <div class="page" id="page-exercises"></div>
+    <div class="page" id="page-sessions"></div>
+    <div class="page" id="page-diagnostics"></div>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box"><div id="modal-content"></div></div>
+</div>
+
+<script src="js/sound.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/router.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/session_player.js"></script>
+<script src="js/diag_methods.js"></script>
+<script src="js/diag_editor.js"></script>
+<script src="js/diag_player.js"></script>
+<script src="js/player.js"></script>
+<script src="js/pages/students.js"></script>
+<script src="js/pages/exercises.js"></script>
+<script src="js/pages/sessions.js"></script>
+<script src="js/pages/diagnostics.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
