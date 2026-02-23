@@ -6,21 +6,21 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win --x64",
-    "build:linux": "electron-builder --linux --x64",
-    "build:all": "electron-builder --win --linux --x64"
+    "build": "electron-builder --win --x64 --publish never",
+    "build:linux": "electron-builder --linux --x64 --publish never",
+    "build:all": "electron-builder --win --linux --x64 --publish never"
   },
   "dependencies": {
     "sql.js": "^1.12.0"
   },
   "devDependencies": {
     "electron": "^29.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "ru.vekha.app",
     "productName": "Веха",
-    "publish": null,
+    "copyright": "© 2025 Веха",
     "directories": {
       "output": "dist"
     },
