@@ -37,7 +37,7 @@
     },
     "linux": {
       "target": [{ "target": "AppImage", "arch": ["x64"] }],
-      "icon": "src/assets/logo.jpg",
+      "icon": "src/assets/logo.png",
       "category": "Education"
     },
     "nsis": {

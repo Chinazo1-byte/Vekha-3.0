@@ -43,8 +43,15 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Convert icon to PNG
+        run: |
+          sudo apt-get install -y imagemagick
+          convert src/assets/logo.jpg src/assets/logo.png
+
       - name: Build Linux
         run: npm run build:linux
+        env:
+          LINUX_ICON: src/assets/logo.png
 
       - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
