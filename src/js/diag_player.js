@@ -192,31 +192,208 @@ const DiagPlayer = {
         </div>`;
     }
 
+    // Филлипс: разбивка по факторам
+    if (methodId === 'phillips' && scores.factors) {
+      const fColors = { general:'var(--indigo)', school:'var(--rose)', evaluation:'var(--amber)', teacher:'var(--green)' };
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:12px;text-transform:uppercase">По шкалам</div>
+          ${Object.entries(scores.factors).filter(([k]) => k !== 'general').map(([k, f]) => `
+            <div style="margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12.5px;color:var(--text-2)">${f.name}</span>
+                <span style="font-size:12.5px;font-weight:700;color:${fColors[k]||'var(--indigo)'}">${f.pct}%</span>
+              </div>
+              <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${f.pct}%;background:${fColors[k]||'var(--indigo)'};border-radius:4px;transition:width .5s"></div>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
+    // Социометрия: таблица статусов
+    if (methodId === 'sociometry' && scores.pupils) {
+      const statusLabel = { star:'⭐ Звезда', preferred:'👍 Предпочитаемый', average:'😐 Принятый', rejected:'👻 Изолированный' };
+      const statusColor = { star:'var(--amber)', preferred:'var(--green)', average:'var(--text-2)', rejected:'var(--rose)' };
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:12px;text-transform:uppercase">Статусы учеников</div>
+          <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto">
+            ${scores.pupils.map((p, i) => `
+              <div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--surface-2);border-radius:var(--r-md)">
+                <div style="flex:1;font-size:13px;font-weight:500;color:var(--text-1)">${escHtml(p)}</div>
+                <div style="font-size:12px;color:${statusColor[scores.statuses[i]]};font-weight:600">${statusLabel[scores.statuses[i]]}</div>
+                <div style="font-size:12px;color:var(--text-3);min-width:70px;text-align:right">
+                  получил: <b>${scores.received[i]}</b>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }
+
+    // ВАШ: визуализация шкал
+    if (methodId === 'vas' && scores.sliders) {
+      const VAS_COLORS = { mood:'var(--indigo)', energy:'var(--green)', anxiety:'var(--rose)', interest:'var(--amber)', comfort:'var(--teal)' };
+      const VAS_LABELS = { mood:'Настроение', energy:'Энергия', anxiety:'Тревога', interest:'Интерес', comfort:'Комфорт' };
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:12px;text-transform:uppercase">Профиль состояния</div>
+          ${Object.entries(scores.sliders).map(([k, v]) => `
+            <div style="margin-bottom:10px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-size:12.5px;color:var(--text-2)">${VAS_LABELS[k]||k}</span>
+                <span style="font-size:13px;font-weight:700;color:${VAS_COLORS[k]||'var(--indigo)'}">${v}/10</span>
+              </div>
+              <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
+                <div style="height:100%;width:${v*10}%;background:${VAS_COLORS[k]||'var(--indigo)'};border-radius:4px"></div>
+              </div>
+            </div>`).join('')}
+        </div>`;
+    }
+
     return '';
   },
 
   // ════════════════════════════════════════════════════════════════════════════
   //  ПОЛЬЗОВАТЕЛЬСКИЕ МЕТОДИКИ (редактор)
   // ════════════════════════════════════════════════════════════════════════════
-  _runCustom(diag, questions, student) {
+  _runCustom(diag, elements, student) {
+    // Поддержка нового формата (version:2) и старого (массив вопросов)
+    const isV2 = !Array.isArray(elements) && elements.version === 2;
+    if (isV2) {
+      this._runCustomV2(diag, elements, student);
+    } else {
+      this._runCustomV1(diag, Array.isArray(elements) ? elements : [], student);
+    }
+  },
+
+  // ── Новый формат v2 ──────────────────────────────────────────────────────
+  _runCustomV2(diag, data, student) {
+    const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
+    const el    = this._makeOverlay(diag.name, sName);
+    const allEls = data.elements || [];
+
+    // Разделяем: info-элементы просто показываем, остальные — ответы
+    const answerable = allEls.filter(e => e.type !== 'info' && e.answer && e.answer.type !== null);
+    const answers    = {}; // { elementId: { value, scoreIndex } }
+
+    const isTeacher = diag.fill_by === 'teacher';
+
+    if (isTeacher) {
+      this._runV2AllAtOnce(diag, data, allEls, answerable, answers, student);
+    } else {
+      this._runV2Sequential(diag, data, allEls, answerable, answers, student);
+    }
+  },
+
+  _runV2Sequential(diag, data, allEls, answerable, answers, student) {
+    let idx = 0;
+
+    const renderNext = () => {
+      if (idx >= allEls.length) { finishV2(); return; }
+      const elem = allEls[idx];
+
+      // info — показываем как экран-разделитель
+      if (elem.type === 'info') {
+        document.getElementById('dp-body').innerHTML = `
+          <div style="max-width:580px;width:100%">
+            <div style="background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:32px;text-align:center">
+              <div style="font-size:15px;font-weight:500;color:var(--indigo);line-height:1.7;white-space:pre-wrap">${escHtml(elem.stimulus?.text||'')}</div>
+              <button class="btn btn-primary" id="dp-info-next" style="margin-top:20px">Продолжить →</button>
+            </div>
+          </div>`;
+        document.getElementById('dp-info-next').addEventListener('click', () => { idx++; renderNext(); });
+        return;
+      }
+
+      const ansIdx  = answerable.indexOf(elem);
+      const total   = answerable.length;
+      const pct     = total ? Math.round(ansIdx / total * 100) : 100;
+      const topbar  = document.getElementById('dp-topbar-right');
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12.5px;color:var(--text-3)">${ansIdx+1} / ${total}</span>
+          <div style="width:80px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo);transition:width .3s"></div>
+          </div>
+        </div>`;
+
+      document.getElementById('dp-body').innerHTML = `
+        <div style="width:100%;max-width:640px">
+          ${elem.stimulus?.image ? `<img data-path="${escHtml(elem.stimulus.image)}" class="lazy-img" style="width:100%;max-height:280px;object-fit:cover;border-radius:var(--r-xl);margin-bottom:20px">` : ''}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px 32px">
+            ${elem.stimulus?.text ? `<div style="font-size:16px;font-weight:500;color:var(--text-1);margin-bottom:22px;line-height:1.6">${escHtml(elem.stimulus.text)}</div>` : ''}
+            <div id="dp-v2-ans"></div>
+          </div>
+        </div>`;
+
+      renderV2Answer(elem, document.getElementById('dp-v2-ans'), answers, () => { idx++; renderNext(); });
+    };
+
+    const finishV2 = async () => {
+      const { total, subscaleScores, summary } = calcV2Scores(data, answers);
+      await window.db.diagnostics.saveResult({
+        diagnostic_id: diag.id,
+        student_id:    student?.id || null,
+        answers:       answers,
+        scores:        { total, subscaleScores },
+        summary,
+      });
+      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close());
+    };
+
+    renderNext();
+  },
+
+  _runV2AllAtOnce(diag, data, allEls, answerable, answers, student) {
+    const topbar = document.getElementById('dp-topbar-right');
+    topbar.innerHTML = `<button class="btn btn-primary" id="dp-v2-finish">Завершить</button>`;
+
+    document.getElementById('dp-body').innerHTML = `
+      <div style="width:100%;max-width:700px;display:flex;flex-direction:column;gap:14px" id="dp-v2-all"></div>`;
+
+    const container = document.getElementById('dp-v2-all');
+    let qi = 0;
+    allEls.forEach(elem => {
+      const div = document.createElement('div');
+
+      if (elem.type === 'info') {
+        div.style.cssText = 'background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:18px 22px';
+        div.innerHTML = `<div style="font-size:14px;color:var(--indigo);line-height:1.7;white-space:pre-wrap">${escHtml(elem.stimulus?.text||'')}</div>`;
+      } else {
+        qi++;
+        div.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px 24px;animation:none';
+        div.innerHTML = `
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">№ ${qi}</div>
+          ${elem.stimulus?.text ? `<div style="font-size:14px;font-weight:500;color:var(--text-1);margin-bottom:16px;line-height:1.5">${escHtml(elem.stimulus.text)}</div>` : ''}
+          <div class="dp-v2-a-wrap"></div>`;
+        renderV2Answer(elem, div.querySelector('.dp-v2-a-wrap'), answers, null);
+      }
+      container.appendChild(div);
+    });
+
+    document.getElementById('dp-v2-finish').addEventListener('click', async () => {
+      const { total, subscaleScores, summary } = calcV2Scores(data, answers);
+      await window.db.diagnostics.saveResult({
+        diagnostic_id: diag.id,
+        student_id:    student?.id || null,
+        answers, scores: { total, subscaleScores }, summary,
+      });
+      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close());
+    });
+  },
+
+  // ── Старый формат v1 (обратная совместимость) ────────────────────────────
+  _runCustomV1(diag, questions, student) {
     const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
     const el = this._makeOverlay(diag.name, sName);
     const answers = {}, notes = {};
     let idx = 0;
 
     const renderQ = () => {
-      if (idx >= questions.length) { finishCustom(); return; }
-      const q   = questions[idx];
-      const pct = Math.round(idx / questions.length * 100);
-      const isTeacher = diag.fill_by === 'teacher';
-
-      if (isTeacher) {
-        // Показываем все сразу
-        renderAllCustom();
-        return;
-      }
-
-      // По одному
+      if (idx >= questions.length) { finish(); return; }
+      const q = questions[idx], pct = Math.round(idx / questions.length * 100);
+      if (diag.fill_by === 'teacher') { renderAll(); return; }
       document.getElementById('dp-body').innerHTML = `
         <div style="width:100%;max-width:620px">
           <div style="background:var(--surface-2);border-radius:4px;height:6px;margin-bottom:24px;overflow:hidden">
@@ -226,45 +403,33 @@ const DiagPlayer = {
             <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">
               Вопрос ${idx+1} из ${questions.length}
             </div>
-            <div style="font-size:16px;font-weight:500;color:var(--text-1);margin-bottom:24px;line-height:1.55">${escHtml(q.text)}</div>
+            <div style="font-size:16px;font-weight:500;color:var(--text-1);margin-bottom:24px;line-height:1.55">${escHtml(q.text||'')}</div>
             <div id="dp-custom-answer"></div>
           </div>
         </div>`;
       renderCustomAnswer(q, document.getElementById('dp-custom-answer'), answers, notes, () => { idx++; renderQ(); });
     };
 
-    const renderAllCustom = () => {
-      document.getElementById('dp-topbar-right').innerHTML =
-        `<button class="btn btn-primary" id="dp-custom-finish">Завершить</button>`;
-      document.getElementById('dp-body').innerHTML = `
-        <div style="width:100%;max-width:680px;display:flex;flex-direction:column;gap:16px" id="dp-all-qs"></div>`;
-
-      const container = document.getElementById('dp-all-qs');
+    const renderAll = () => {
+      document.getElementById('dp-topbar-right').innerHTML = `<button class="btn btn-primary" id="dp-v1-fin">Завершить</button>`;
+      document.getElementById('dp-body').innerHTML = `<div style="width:100%;max-width:680px;display:flex;flex-direction:column;gap:16px" id="dp-v1-all"></div>`;
+      const container = document.getElementById('dp-v1-all');
       questions.forEach((q, qi) => {
         const div = document.createElement('div');
-        div.className = 'player-card';
-        div.style.cssText = 'padding:22px;animation:none';
-        div.innerHTML = `
-          <div style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">
-            ${qi+1} / ${questions.length}
-          </div>
-          <div style="font-size:14.5px;font-weight:500;margin-bottom:16px;line-height:1.5">${escHtml(q.text)}</div>
-          <div class="dp-custom-a" data-qi="${qi}"></div>`;
+        div.className = 'player-card'; div.style.cssText = 'padding:22px;animation:none';
+        div.innerHTML = `<div style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">${qi+1} / ${questions.length}</div>
+          <div style="font-size:14.5px;font-weight:500;margin-bottom:16px;line-height:1.5">${escHtml(q.text||'')}</div>
+          <div class="dp-v1-a" data-qi="${qi}"></div>`;
         container.appendChild(div);
-        renderCustomAnswer(q, div.querySelector('.dp-custom-a'), answers, notes, null);
+        renderCustomAnswer(q, div.querySelector('.dp-v1-a'), answers, notes, null);
       });
-      document.getElementById('dp-custom-finish')?.addEventListener('click', finishCustom);
+      document.getElementById('dp-v1-fin')?.addEventListener('click', finish);
     };
 
-    const finishCustom = async () => {
-      const summary = `${Object.keys(answers).length + Object.values(notes).filter(v=>v?.trim()).length} ответов`;
-      await window.db.diagnostics.saveResult({
-        diagnostic_id: diag.id,
-        student_id:    student?.id || null,
-        answers:       { answers, notes },
-        scores:        {},
-        summary,
-      });
+    const finish = async () => {
+      const cnt = Object.keys(answers).length + Object.values(notes).filter(v=>v?.trim()).length;
+      const summary = `${cnt} ответов`;
+      await window.db.diagnostics.saveResult({ diagnostic_id: diag.id, student_id: student?.id||null, answers: { answers, notes }, scores: {}, summary });
       this._showSimpleFinal(diag.name, summary, student);
     };
 
@@ -865,7 +1030,533 @@ const DiagUIs = {
     };
     render();
   },
+
+  // ── 7. Тест Филлипса (школьная тревожность) ──────────────────────────────
+  phillips(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const answers = Array(58).fill(null); // 1=Да, 0=Нет
+
+    const render = (page) => {
+      const PER_PAGE = 10;
+      const totalPages = Math.ceil(PHILLIPS_QUESTIONS.length / PER_PAGE);
+      const start = page * PER_PAGE;
+      const pageQs = PHILLIPS_QUESTIONS.slice(start, start + PER_PAGE);
+      const filled = answers.filter(a => a !== null).length;
+      const pct    = Math.round(filled / 58 * 100);
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:12.5px;color:var(--text-3)">Вопросов заполнено: ${filled}/58</div>
+          <div style="width:120px;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo);transition:width .3s"></div>
+          </div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="max-width:680px;width:100%">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden">
+            <div style="background:var(--indigo-l);padding:16px 20px;border-bottom:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:2px">Страница ${page+1} из ${totalPages}</div>
+              <div style="font-size:13px;color:var(--text-2)">Отвечай честно: «Да» или «Нет»</div>
+            </div>
+
+            ${pageQs.map((q, li) => {
+              const i   = start + li;
+              const ans = answers[i];
+              return `
+                <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;gap:14px;align-items:center">
+                  <div style="font-size:12px;font-weight:700;color:var(--text-3);width:24px;flex-shrink:0;text-align:right">${i+1}</div>
+                  <div style="flex:1;font-size:13.5px;color:var(--text-1);line-height:1.5">${escHtml(q)}</div>
+                  <div style="display:flex;gap:6px;flex-shrink:0">
+                    <button class="phil-ans ${ans===1?'active':''}" data-i="${i}" data-v="1"
+                      style="padding:7px 16px;border-radius:var(--r-md);border:2px solid ${ans===1?'var(--green)':'var(--border)'};
+                             background:${ans===1?'var(--green-l)':'var(--surface)'};color:${ans===1?'var(--green)':'var(--text-2)'};
+                             font-family:var(--font-ui);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s">Да</button>
+                    <button class="phil-ans ${ans===0?'active':''}" data-i="${i}" data-v="0"
+                      style="padding:7px 16px;border-radius:var(--r-md);border:2px solid ${ans===0?'var(--rose)':'var(--border)'};
+                             background:${ans===0?'var(--rose-l)':'var(--surface)'};color:${ans===0?'var(--rose)':'var(--text-2)'};
+                             font-family:var(--font-ui);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .15s">Нет</button>
+                  </div>
+                </div>`; }).join('')}
+          </div>
+
+          <div style="display:flex;justify-content:space-between;margin-top:16px">
+            ${page > 0
+              ? `<button class="btn btn-ghost" id="phil-prev">← Назад</button>`
+              : '<div></div>'}
+            ${page < totalPages - 1
+              ? `<button class="btn btn-primary" id="phil-next">Далее →</button>`
+              : `<button class="btn btn-primary" id="phil-done" ${filled < 58 ? 'disabled title="Ответьте на все вопросы"' : ''}>Завершить →</button>`}
+          </div>
+        </div>`;
+
+      body.querySelectorAll('.phil-ans').forEach(btn => {
+        btn.addEventListener('click', () => {
+          answers[+btn.dataset.i] = +btn.dataset.v;
+          render(page);
+        });
+      });
+      body.querySelector('#phil-prev')?.addEventListener('click', () => render(page-1));
+      body.querySelector('#phil-next')?.addEventListener('click', () => render(page+1));
+      body.querySelector('#phil-done')?.addEventListener('click', () => {
+        onDone({ answers: answers.map(a => a ?? 0) });
+      });
+    };
+    render(0);
+  },
+
+  // ── 8. Мотивация учения (Лусканова) ──────────────────────────────────────
+  luskan(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const answers = Array(10).fill(null); // баллы за каждый ответ
+
+    const render = (qi) => {
+      const q   = LUSKAN_QUESTIONS[qi];
+      const pct = Math.round(qi / 10 * 100);
+
+      topbar.innerHTML = `
+        <span style="font-size:13px;color:var(--text-3)">Вопрос ${qi+1} из 10</span>
+        <div style="width:100px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-left:10px">
+          <div style="width:${pct}%;height:100%;background:var(--indigo)"></div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="max-width:560px;width:100%">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:32px">
+            <div style="font-size:12px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:14px">
+              Вопрос ${qi+1} из ${LUSKAN_QUESTIONS.length}
+            </div>
+            <div style="font-size:16px;font-weight:500;color:var(--text-1);line-height:1.6;margin-bottom:28px">
+              ${escHtml(q.text)}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px" id="luskan-opts"></div>
+          </div>
+        </div>`;
+
+      const container = document.getElementById('luskan-opts');
+      q.opts.forEach((opt, oi) => {
+        const btn = document.createElement('button');
+        const prevScore = answers[qi];
+        const isSelected = prevScore === q.scores[oi];
+        btn.className = 'player-opt';
+        btn.style.cssText = `font-size:14px;padding:14px 20px;text-align:left;border:2px solid ${isSelected?'var(--indigo)':'var(--border)'};background:${isSelected?'var(--indigo-l)':'var(--surface)'};color:${isSelected?'var(--indigo)':'var(--text-1)'};transition:all .15s`;
+        btn.textContent = opt;
+        btn.addEventListener('click', () => {
+          answers[qi] = q.scores[oi];
+          if (qi + 1 < LUSKAN_QUESTIONS.length) {
+            render(qi + 1);
+          } else {
+            onDone({ answers });
+          }
+        });
+        container.appendChild(btn);
+      });
+    };
+    render(0);
+  },
+
+  // ── 9. Социометрия ───────────────────────────────────────────────────────
+  sociometry(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    let pupils   = [];
+    let choices  = {}; // {0: [1,2,3], 1: [0,2], ...}
+    let step     = 'setup'; // 'setup' | 'enter' | 'result'
+    let curPupil = 0;
+    const MAX_CHOICES = 3;
+
+    const renderSetup = () => {
+      topbar.innerHTML = '';
+      body.innerHTML = `
+        <div style="max-width:560px;width:100%">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px">
+            <div style="font-size:18px;font-weight:700;color:var(--text-1);margin-bottom:6px">Список класса</div>
+            <div style="font-size:13px;color:var(--text-3);margin-bottom:20px">Введите имена учеников (каждое с новой строки)</div>
+            <textarea class="input-field" id="soc-names" placeholder="Иванов Иван&#10;Петрова Мария&#10;Сидоров Алексей&#10;..."
+              style="height:200px;font-size:13.5px;line-height:1.8">${pupils.join('\n')}</textarea>
+            <div style="margin-top:16px;text-align:right">
+              <button class="btn btn-primary" id="soc-start">Начать заполнение →</button>
+            </div>
+          </div>
+        </div>`;
+
+      body.querySelector('#soc-start').addEventListener('click', () => {
+        const lines = document.getElementById('soc-names').value
+          .split('\n').map(s => s.trim()).filter(Boolean);
+        if (lines.length < 3) { toast('Введите минимум 3 ученика', 'error'); return; }
+        pupils  = lines;
+        choices = {};
+        pupils.forEach((_, i) => { choices[i] = []; });
+        curPupil = 0;
+        step = 'enter';
+        renderEntry();
+      });
+    };
+
+    const renderEntry = () => {
+      const name = pupils[curPupil];
+      const chosen = choices[curPupil] || [];
+      const pct    = Math.round(curPupil / pupils.length * 100);
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:13px;color:var(--text-3)">Ученик ${curPupil+1} из ${pupils.length}</span>
+          <div style="width:100px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo)"></div>
+          </div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="max-width:580px;width:100%">
+          <div style="background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:18px 22px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:4px">Заполняет</div>
+            <div style="font-size:20px;font-weight:700;color:var(--indigo)">${escHtml(name)}</div>
+            <div style="font-size:12.5px;color:var(--indigo);opacity:.7;margin-top:4px">
+              Выбрано: ${chosen.length} из ${MAX_CHOICES}
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:14px">
+              С кем бы ты хотел сидеть за одной партой? (выбери до 3)
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px" id="soc-pupils"></div>
+          </div>
+          <div style="margin-top:16px;display:flex;justify-content:space-between">
+            ${curPupil > 0 ? '<button class="btn btn-ghost" id="soc-prev">← Назад</button>' : '<div></div>'}
+            <button class="btn btn-primary" id="soc-next">
+              ${curPupil < pupils.length-1 ? 'Следующий →' : 'Рассчитать →'}
+            </button>
+          </div>
+        </div>`;
+
+      const container = document.getElementById('soc-pupils');
+      pupils.forEach((pName, pi) => {
+        if (pi === curPupil) return;
+        const isSel = chosen.includes(pi);
+        const div = document.createElement('div');
+        div.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:var(--r-md);cursor:pointer;border:2px solid ${isSel?'var(--indigo)':'var(--border)'};background:${isSel?'var(--indigo-l)':'var(--surface)'};transition:all .15s`;
+        div.innerHTML = `
+          <div style="width:22px;height:22px;border-radius:50%;border:2px solid ${isSel?'var(--indigo)':'var(--border-2)'};background:${isSel?'var(--indigo)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${isSel ? '<span style="color:#fff;font-size:11px">✓</span>' : ''}
+          </div>
+          <span style="font-size:13.5px;font-weight:${isSel?'600':'400'};color:${isSel?'var(--indigo)':'var(--text-1)'}">${escHtml(pName)}</span>`;
+        div.addEventListener('click', () => {
+          const idx = choices[curPupil].indexOf(pi);
+          if (idx >= 0) {
+            choices[curPupil].splice(idx, 1);
+          } else if (choices[curPupil].length < MAX_CHOICES) {
+            choices[curPupil].push(pi);
+          } else {
+            toast(`Максимум ${MAX_CHOICES} выбора`, 'error');
+            return;
+          }
+          renderEntry();
+        });
+        container.appendChild(div);
+      });
+
+      body.querySelector('#soc-prev')?.addEventListener('click', () => { curPupil--; renderEntry(); });
+      body.querySelector('#soc-next')?.addEventListener('click', () => {
+        if (curPupil < pupils.length - 1) {
+          curPupil++;
+          renderEntry();
+        } else {
+          onDone({ pupils, choices });
+        }
+      });
+    };
+
+    renderSetup();
+  },
+
+  // ── 10. ВАШ — Визуальная аналоговая шкала ────────────────────────────────
+  vas(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const VAS_SCALES = [
+      { key: 'mood',     label: 'Настроение',   low: '😞 Очень плохое', high: '😄 Отличное',      color: 'var(--indigo)' },
+      { key: 'energy',   label: 'Энергия',      low: '🔋 Нет сил',      high: '⚡ Полон сил',      color: 'var(--green)' },
+      { key: 'anxiety',  label: 'Тревога',      low: '😌 Спокойно',     high: '😰 Очень тревожно', color: 'var(--rose)' },
+      { key: 'interest', label: 'Интерес',      low: '😴 Скучно',       high: '🤩 Очень интересно', color: 'var(--amber)' },
+      { key: 'comfort',  label: 'Комфорт',      low: '😣 Некомфортно',  high: '😊 Комфортно',      color: 'var(--teal)' },
+    ];
+    const vals = { mood: 5, energy: 5, anxiety: 0, interest: 5, comfort: 5 };
+
+    const render = () => {
+      topbar.innerHTML = '';
+      body.innerHTML = `
+        <div style="max-width:580px;width:100%">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px">
+            <div style="font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:4px">Как я себя чувствую?</div>
+            <div style="font-size:13px;color:var(--text-3);margin-bottom:24px">Передвигай ползунки — отметь своё состояние прямо сейчас</div>
+            <div style="display:flex;flex-direction:column;gap:24px" id="vas-sliders"></div>
+            <div style="margin-top:24px;text-align:right">
+              <button class="btn btn-primary" id="vas-done" style="font-size:14px;padding:11px 28px">Сохранить →</button>
+            </div>
+          </div>
+        </div>`;
+
+      const container = document.getElementById('vas-sliders');
+      VAS_SCALES.forEach(sc => {
+        const v   = vals[sc.key];
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="font-size:13.5px;font-weight:700;color:var(--text-1)">${sc.label}</div>
+            <div style="font-size:16px;font-weight:700;color:${sc.color};min-width:28px;text-align:right">${v}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:12px;color:var(--text-3);min-width:110px;text-align:right">${sc.low}</div>
+            <input type="range" min="0" max="10" value="${v}" class="vas-slider" data-key="${sc.key}"
+              style="flex:1;accent-color:${sc.color};cursor:pointer;height:6px">
+            <div style="font-size:12px;color:var(--text-3);min-width:110px">${sc.high}</div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:0;margin-top:6px">
+            ${Array.from({length:11},(_,i) => `
+              <div style="flex:1;text-align:center;font-size:10px;color:${v===i?sc.color:'var(--text-3)'};font-weight:${v===i?'700':'400'}">${i}</div>`
+            ).join('')}
+          </div>`;
+        container.appendChild(div);
+      });
+
+      container.querySelectorAll('.vas-slider').forEach(inp => {
+        inp.addEventListener('input', () => {
+          vals[inp.dataset.key] = parseInt(inp.value);
+          render();
+        });
+      });
+
+      body.querySelector('#vas-done').addEventListener('click', () => {
+        onDone({ sliders: { ...vals } });
+      });
+    };
+    render();
+  },
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  ХЕЛПЕРЫ ДЛЯ ПОЛЬЗОВАТЕЛЬСКИХ МЕТОДИК v2
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Рендер ответа для одного элемента v2
+function renderV2Answer(elem, container, answers, onNext) {
+  if (!container) return;
+  const ans = elem.answer;
+
+  if (ans.type === 'yesno' || ans.type === 'checkbox' || ans.type === 'variants' || ans.type === 'scale') {
+    const opts      = ans.options || [];
+    const prevAns   = answers[elem.id];
+    const autoNext  = !onNext ? false : (ans.type !== 'variants');
+
+    container.innerHTML = `
+      <div style="display:flex;flex-wrap:wrap;gap:10px" id="v2-opts-${elem.id}">
+        ${opts.map((opt, i) => `
+          <button class="player-opt v2-opt" data-i="${i}"
+            style="font-size:14px;padding:12px 20px;min-height:auto;
+                   border-color:${prevAns?.optIndex===i?'var(--indigo)':'var(--border)'};
+                   background:${prevAns?.optIndex===i?'var(--indigo-l)':'var(--surface)'};
+                   color:${prevAns?.optIndex===i?'var(--indigo)':'var(--text-1)'}">
+            ${escHtml(opt)}
+          </button>`).join('')}
+      </div>
+      ${onNext ? `<div style="margin-top:12px;text-align:right">
+        <button class="btn btn-primary v2-next" ${!prevAns?'disabled':''}>Далее →</button>
+      </div>` : ''}`;
+
+    container.querySelectorAll('.v2-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i     = +btn.dataset.i;
+        const score = elem.weight?.scores?.[i] ?? 0;
+        answers[elem.id] = { optIndex: i, label: opts[i], score };
+
+        container.querySelectorAll('.v2-opt').forEach((b, bi) => {
+          const sel = bi === i;
+          b.style.borderColor = sel ? 'var(--indigo)' : 'var(--border)';
+          b.style.background  = sel ? 'var(--indigo-l)' : 'var(--surface)';
+          b.style.color       = sel ? 'var(--indigo)' : 'var(--text-1)';
+        });
+
+        const nextBtn = container.querySelector('.v2-next');
+        if (nextBtn) nextBtn.disabled = false;
+        if (onNext && autoNext) setTimeout(onNext, 380);
+      });
+    });
+    container.querySelector('.v2-next')?.addEventListener('click', () => { if (answers[elem.id]) onNext(); });
+
+  } else if (ans.type === 'number') {
+    const prev = answers[elem.id]?.value ?? '';
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px">
+        <input type="number" class="input-field v2-num" min="${ans.min||0}" max="${ans.max||9999}" value="${prev}"
+          placeholder="${ans.min||0} — ${ans.max||9999}"
+          style="max-width:160px;font-size:20px;font-weight:700;text-align:center;padding:12px">
+        <span style="font-size:13px;color:var(--text-3)">Диапазон: ${ans.min||0} — ${ans.max||9999}</span>
+      </div>
+      ${onNext ? `<div style="margin-top:12px;text-align:right">
+        <button class="btn btn-primary v2-next" ${!prev?'disabled':''}>Далее →</button>
+      </div>` : ''}`;
+
+    const numInp = container.querySelector('.v2-num');
+    numInp.addEventListener('input', () => {
+      const v = parseFloat(numInp.value) || 0;
+      answers[elem.id] = { value: v, score: v };
+      const nb = container.querySelector('.v2-next');
+      if (nb) nb.disabled = false;
+    });
+    container.querySelector('.v2-next')?.addEventListener('click', () => { if (answers[elem.id]) onNext(); });
+  }
+}
+
+// Подсчёт баллов для v2
+function calcV2Scores(data, answers) {
+  let total = 0;
+  const subscaleScores = {};
+
+  (data.elements || []).forEach(elem => {
+    if (elem.type === 'info' || !elem.answer) return;
+    const ans = answers[elem.id];
+    if (!ans) return;
+
+    let score = 0;
+    if (ans.score !== undefined) {
+      score = ans.score;
+    } else if (ans.optIndex !== undefined && elem.weight?.scores) {
+      score = elem.weight.scores[ans.optIndex] ?? 0;
+    }
+
+    total += score;
+    if (elem.weight?.subscale) {
+      subscaleScores[elem.weight.subscale] = (subscaleScores[elem.weight.subscale] || 0) + score;
+    }
+  });
+
+  const answered = Object.keys(answers).length;
+  const summary  = data.interpretation
+    ? `Сумма: ${total}`
+    : `${answered} ответов`;
+
+  return { total, subscaleScores, summary };
+}
+
+// Экран результата для v2
+function showV2Result(overlay, diag, data, total, subscaleScores, summary, student, onClose) {
+  const interp = data.interpretation;
+
+  // Если нет интерпретации — простой финальный экран
+  if (!interp || !interp.ranges?.length) {
+    const hasSubs = Object.keys(subscaleScores).length > 0;
+    const hasWeights = total !== 0 || Object.values(subscaleScores).some(v => v !== 0);
+
+    overlay.innerHTML = `
+      <div class="player-topbar">
+        <div style="font-size:15px;font-weight:600">Результат: ${escHtml(diag.name)}</div>
+      </div>
+      <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:32px 48px">
+        <div style="width:100%;max-width:640px">
+          ${hasWeights ? `
+            <div style="background:var(--indigo-l);border-radius:var(--r-xl);padding:20px 24px;margin-bottom:20px">
+              <div style="font-size:12px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:6px">Итоговая сумма</div>
+              <div style="font-size:28px;font-weight:700;color:var(--indigo)">${total}</div>
+              ${hasSubs ? `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+                ${Object.entries(subscaleScores).map(([s,v]) => `
+                  <div style="font-size:13px;color:var(--indigo);background:rgba(91,91,214,.12);padding:4px 12px;border-radius:12px">
+                    ${escHtml(s)}: <b>${v}</b>
+                  </div>`).join('')}
+              </div>` : ''}
+            </div>` : ''}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">Ответы записаны</div>
+            <div style="font-size:14px;color:var(--text-2)">${escHtml(summary)}</div>
+          </div>
+          ${student ? `<div style="background:var(--green-l);border-radius:var(--r-lg);padding:12px 16px;margin-bottom:20px;font-size:13.5px;color:var(--green)">
+            ✓ Сохранено: <b>${escHtml(student.first_name)} ${escHtml(student.last_name||'')}</b></div>` : ''}
+          <button class="btn btn-ghost" id="v2-close">Закрыть</button>
+        </div>
+      </div>`;
+    overlay.querySelector('#v2-close').addEventListener('click', onClose);
+    return;
+  }
+
+  // Найти диапазон для total
+  const findRange = (ranges, val) => ranges?.find(r => val >= r.from && val <= r.to) || null;
+  const mainRange = findRange(interp.ranges, total);
+
+  const levelColors = { norm:'var(--green)', attention:'var(--amber)', risk:'var(--rose)', none:'var(--text-3)' };
+  const levelBgs    = { norm:'var(--green-l)', attention:'var(--amber-l)', risk:'var(--rose-l)', none:'var(--surface-2)' };
+  const levelLabels = { norm:'Норма', attention:'Вызывает внимание', risk:'Требует консультации', none:'' };
+  const level = mainRange?.level || 'none';
+  const col   = levelColors[level];
+  const bg    = levelBgs[level];
+
+  const hasSubs = Object.keys(subscaleScores).length > 0 && interp.subscaleRanges;
+
+  overlay.innerHTML = `
+    <div class="player-topbar">
+      <div style="font-size:15px;font-weight:600">Результат: ${escHtml(diag.name)}</div>
+    </div>
+    <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:32px 48px">
+      <div style="width:100%;max-width:680px">
+
+        <!-- Итоговый вердикт -->
+        <div style="background:${bg};border:2px solid ${col}40;border-radius:var(--r-xl);padding:24px 28px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${mainRange?.label ? '12px' : '0'}">
+            <div style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.06em;flex:1">
+              Итог · Сумма ${total}${levelLabels[level] ? ' · ' + levelLabels[level] : ''}
+            </div>
+          </div>
+          ${mainRange?.label ? `
+            <div style="font-size:24px;font-weight:700;color:${col};line-height:1.3;margin-bottom:${mainRange?.desc ? '16px' : '0'}">
+              ${escHtml(mainRange.label)}
+            </div>` : `
+            <div style="font-size:15px;color:${col};opacity:.7">Результат за пределами заданных диапазонов</div>`}
+          ${mainRange?.desc ? `
+            <div style="background:rgba(255,255,255,.55);border-radius:var(--r-lg);padding:14px 18px;font-size:14px;line-height:1.7;color:var(--text-1);white-space:pre-wrap">
+              ${escHtml(mainRange.desc)}
+            </div>` : ''}
+        </div>
+
+        <!-- Подшкалы -->
+        ${hasSubs ? `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:20px">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface-2)">
+              <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase">По подшкалам</div>
+            </div>
+            ${Object.entries(subscaleScores).map(([sub, val]) => {
+              const subRanges = interp.subscaleRanges?.[sub] || [];
+              const subRange  = findRange(subRanges, val);
+              const sc  = levelColors[subRange?.level || 'none'];
+              const sbg = levelBgs[subRange?.level || 'none'];
+              return `
+                <div style="border-bottom:1px solid var(--border);padding:14px 18px;background:${sbg}20">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:${subRange?.desc ? '10px' : '0'}">
+                    <div style="flex:1;font-size:13.5px;font-weight:700;color:var(--text-1)">${escHtml(sub)}</div>
+                    <div style="font-size:18px;font-weight:700;color:${sc}">${val}</div>
+                    ${subRange?.label ? `
+                      <div style="font-size:12.5px;font-weight:700;color:${sc};background:${sbg};padding:4px 12px;border-radius:20px;border:1px solid ${sc}40">
+                        ${escHtml(subRange.label)}
+                      </div>` : ''}
+                  </div>
+                  ${subRange?.desc ? `
+                    <div style="font-size:13px;line-height:1.65;color:var(--text-2);white-space:pre-wrap">
+                      ${escHtml(subRange.desc)}
+                    </div>` : ''}
+                </div>`;
+            }).join('')}
+          </div>` : ''}
+
+        ${student ? `
+          <div style="background:var(--green-l);border-radius:var(--r-lg);padding:12px 16px;margin-bottom:20px;font-size:13.5px;color:var(--green)">
+            ✓ Сохранено: <b>${escHtml(student.first_name)} ${escHtml(student.last_name||'')}</b>
+          </div>` : ''}
+
+        <button class="btn btn-ghost" id="v2-close">Закрыть</button>
+      </div>
+    </div>`;
+
+  overlay.querySelector('#v2-close').addEventListener('click', onClose);
+}
 
 // ── Публичные точки входа (вызываются из diagnostics.js) ──────────────────────
 DiagPlayer.startBuiltin = async function(methodId, studentId) {
@@ -881,9 +1572,27 @@ DiagPlayer.startBuiltin = async function(methodId, studentId) {
 DiagPlayer.startCustom = async function(diagId, studentId) {
   const d = await window.db.diagnostics.get(diagId);
   if (!d) { toast('Опросник не найден', 'error'); return; }
-  let questions = [];
-  try { questions = JSON.parse(d.questions || '[]'); } catch(e) {}
-  if (!questions.length) { toast('Нет вопросов — откройте редактор', 'error'); return; }
+
+  let data;
+  try {
+    const raw = JSON.parse(d.questions || 'null');
+    if (raw && raw.version === 2) {
+      data = raw;
+    } else if (Array.isArray(raw) && raw.length) {
+      data = raw; // старый формат — массив
+    } else {
+      toast('Нет элементов — откройте редактор', 'error'); return;
+    }
+  } catch(e) {
+    toast('Нет элементов — откройте редактор', 'error'); return;
+  }
+
+  // Проверяем что есть что показывать
+  if (data.version === 2) {
+    const hasContent = data.elements?.some(e => e.type !== 'info' || e.stimulus?.text);
+    if (!hasContent) { toast('Нет элементов — откройте редактор', 'error'); return; }
+  }
+
   const student = studentId ? await window.db.students.get(studentId) : null;
-  DiagPlayer._runCustom(d, questions, student);
+  DiagPlayer._runCustom(d, data, student);
 };

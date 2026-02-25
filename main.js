@@ -91,6 +91,10 @@ async function initDatabase() {
       summary TEXT DEFAULT '',
       completed_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `);
 
   // Дефолтные категории
@@ -426,6 +430,18 @@ ipcMain.handle('report:saveAs', async (_, pdfPath) => {
 // ── Выход из приложения ───────────────────────────────────────────────────────
 ipcMain.handle('app:quit', () => {
   app.quit();
+});
+
+// ── Настройки приложения ──────────────────────────────────────────────────────
+ipcMain.handle('settings:get', (_, key) => {
+  const r = db.exec(`SELECT value FROM settings WHERE key = ?`, [key]);
+  if (!r.length || !r[0].values.length) return null;
+  try { return JSON.parse(r[0].values[0][0]); } catch(e) { return r[0].values[0][0]; }
+});
+ipcMain.handle('settings:set', (_, key, value) => {
+  db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)`, [key, JSON.stringify(value)]);
+  saveDb();
+  return true;
 });
 
 // ── Экспорт библиотеки упражнений и цепочек ──────────────────────────────────

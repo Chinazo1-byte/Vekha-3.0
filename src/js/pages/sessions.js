@@ -12,6 +12,9 @@ async function loadSessionsPage() {
     window.db.categories.getAll(),
   ]);
   renderSessionsPage();
+  setTimeout(() => {
+    Tour.startIfNeeded('sessions');
+  }, 400);
 }
 
 function renderSessionsPage() {
@@ -27,6 +30,9 @@ function renderSessionsPage() {
       </div>
       <div class="page-actions">
         <button class="btn btn-ghost" id="btn-new-session">Новое занятие</button>
+        <button class="btn btn-ghost btn-sm tour-help-btn" onclick="Tour.start('sessions')" title="Подсказки по разделу">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 14v-1M10 10c0-1.5 2-2 2-3.5a2 2 0 0 0-4 0"/></svg>
+        </button>
         <button class="btn btn-primary" id="btn-new-template">${Icons.plus} Создать шаблон</button>
       </div>
     </div>

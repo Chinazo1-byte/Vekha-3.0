@@ -55,4 +55,8 @@ contextBridge.exposeInMainWorld('db', {
   app: {
     quit: () => api('app:quit'),
   },
+  settings: {
+    get: (key)        => api('settings:get', key),
+    set: (key, value) => api('settings:set', key, value),
+  },
 });

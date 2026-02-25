@@ -11,6 +11,9 @@ async function loadExercisesPage() {
     window.db.categories.getAll(),
   ]);
   renderExercisesPage();
+  setTimeout(() => {
+    Tour.startIfNeeded('exercises');
+  }, 400);
 }
 
 function renderExercisesPage() {
@@ -28,6 +31,9 @@ function renderExercisesPage() {
           ${Icons.search}
           <input type="text" placeholder="Поиск..." id="ex-search" value="${escHtml(_exFilter.search)}">
         </div>
+        <button class="btn btn-ghost btn-sm tour-help-btn" onclick="Tour.start('exercises')" title="Подсказки по разделу">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 14v-1M10 10c0-1.5 2-2 2-3.5a2 2 0 0 0-4 0"/></svg>
+        </button>
         <button class="btn btn-primary" id="btn-add-exercise">${Icons.plus} Создать</button>
       </div>
     </div>

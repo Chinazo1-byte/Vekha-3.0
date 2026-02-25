@@ -8,6 +8,9 @@ let _diagnostics = [];
 async function loadDiagnosticsPage() {
   _diagnostics = await window.db.diagnostics.getAll();
   renderDiagnosticsPage();
+  setTimeout(() => {
+    Tour.startIfNeeded('diagnostics');
+  }, 400);
 }
 
 function renderDiagnosticsPage() {
@@ -22,6 +25,9 @@ function renderDiagnosticsPage() {
         <p class="page-subtitle">Встроенные методики и пользовательские опросники</p>
       </div>
       <div class="page-actions">
+        <button class="btn btn-ghost btn-sm tour-help-btn" onclick="Tour.start('diagnostics')" title="Подсказки по разделу">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 14v-1M10 10c0-1.5 2-2 2-3.5a2 2 0 0 0-4 0"/></svg>
+        </button>
         <button class="btn btn-primary" id="btn-create-diag">${Icons.plus} Свой опросник</button>
       </div>
     </div>
@@ -54,22 +60,32 @@ function renderDiagnosticsPage() {
     });
   });
 
-  // Пользовательские
+  // Пользовательские — делегирование через общий клик по странице
   page.querySelectorAll('.btn-diag-edit').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
-      DiagEditor.open(parseInt(btn.dataset.id), loadDiagnosticsPage);
+      e.preventDefault();
+      const id = parseInt(btn.dataset.id);
+      if (isNaN(id)) { toast('Ошибка: неверный ID диагностики', 'error'); return; }
+      try {
+        await DiagEditor.open(id, loadDiagnosticsPage);
+      } catch (err) {
+        console.error('[DiagEditor] Ошибка открытия редактора:', err);
+        toast('Не удалось открыть редактор', 'error');
+      }
     });
   });
   page.querySelectorAll('.btn-diag-play').forEach(btn => {
-    btn.addEventListener('click', e => {
+    btn.addEventListener('click', async e => {
       e.stopPropagation();
+      e.preventDefault();
       openLaunchDiagModal(parseInt(btn.dataset.id), false);
     });
   });
   page.querySelectorAll('.btn-diag-delete').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      e.preventDefault();
       const id = parseInt(btn.dataset.id);
       const d  = _diagnostics.find(d => d.id === id);
       Modal.confirm('Удалить опросник', `Удалить «${escHtml(d?.name)}»?`, async () => {
@@ -205,12 +221,25 @@ function openDiagModal(existing) {
     if (isEdit) {
       await window.db.diagnostics.update({ id: existing.id, ...data });
       Modal.close();
-      DiagEditor.open(existing.id, loadDiagnosticsPage);
+      try {
+        await DiagEditor.open(existing.id, loadDiagnosticsPage);
+      } catch(err) {
+        console.error('[openDiagModal] ошибка открытия редактора:', err);
+        toast('Не удалось открыть редактор', 'error');
+      }
     } else {
       const created = await window.db.diagnostics.create(data);
+      const newId   = created?.id ?? created;
       Modal.close();
       await loadDiagnosticsPage();
-      setTimeout(() => DiagEditor.open(created?.id || created, loadDiagnosticsPage), 200);
+      setTimeout(async () => {
+        try {
+          await DiagEditor.open(typeof newId === 'bigint' ? Number(newId) : newId, loadDiagnosticsPage);
+        } catch(err) {
+          console.error('[openDiagModal] ошибка открытия редактора после создания:', err);
+          toast('Опросник создан, но редактор не открылся', 'error');
+        }
+      }, 200);
     }
   });
 }
