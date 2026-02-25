@@ -12,23 +12,55 @@ function initSplash() {
   function hideSplash() {
     if (splash._done) return;
     splash._done = true;
+    document.removeEventListener('keydown', onKey);
     splash.classList.add('fade-out');
     if(app) app.style.display = '';
     setTimeout(() => splash.remove(), 600);
   }
 
+  function onKey(e) {
+    if (e.code === 'Space') { e.preventDefault(); hideSplash(); }
+  }
+
+  document.addEventListener('keydown', onKey);
   video.addEventListener('ended', hideSplash);
   setTimeout(hideSplash, 9000); // страховка на 9 сек
   video.play().catch(() => hideSplash());
 }
 
+// ── Тёмная тема ───────────────────────────────────────────────────────────────
+async function initDarkTheme() {
+  const isDark = await window.db.settings.get('dark_theme').catch(() => false);
+  if (isDark) document.body.classList.add('dark');
+}
+
+function initDarkToggle() {
+  const btn = document.getElementById('dark-toggle-btn');
+  if (!btn) return;
+  const isDark = () => document.body.classList.contains('dark');
+  const updateBtn = () => {
+    btn.querySelector('#dark-label').textContent = isDark() ? 'Светлая тема' : 'Тёмная тема';
+    btn.querySelector('#dark-icon').innerHTML = isDark()
+      ? `<circle cx="10" cy="10" r="4" fill="currentColor"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`
+      : `<path d="M17 12a7 7 0 1 1-7-7 5 5 0 0 0 7 7z" fill="currentColor" opacity=".9"/>`;
+  };
+  updateBtn();
+  btn.addEventListener('click', async () => {
+    document.body.classList.toggle('dark');
+    await window.db.settings.set('dark_theme', isDark()).catch(() => {});
+    updateBtn();
+  });
+}
+
 // ── Инициализация приложения ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  await initDarkTheme();
   initSplash();
   await Router.go('students');
   initSoundToggle();
   initQuitButton();
   initLibraryButtons();
+  initDarkToggle();
 });
 
 // ── Кнопка звука ──────────────────────────────────────────────────────────────

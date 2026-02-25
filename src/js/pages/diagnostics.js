@@ -10,7 +10,7 @@ async function loadDiagnosticsPage() {
   renderDiagnosticsPage();
   setTimeout(() => {
     Tour.startIfNeeded('diagnostics');
-  }, 400);
+  }, 800);
 }
 
 function renderDiagnosticsPage() {

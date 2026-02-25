@@ -14,7 +14,7 @@ async function loadSessionsPage() {
   renderSessionsPage();
   setTimeout(() => {
     Tour.startIfNeeded('sessions');
-  }, 400);
+  }, 800);
 }
 
 function renderSessionsPage() {

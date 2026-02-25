@@ -9,7 +9,7 @@ async function loadStudentsPage() {
   renderStudentsPage();
   setTimeout(() => {
     Tour.startIfNeeded('students');
-  }, 400);
+  }, 800);
 }
 
 function renderStudentsPage() {

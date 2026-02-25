@@ -30,6 +30,52 @@
   --shadow-focus: 0 0 0 3px rgba(91,91,214,.2);
   --sidebar-w: 270px;
 }
+
+/* ── Тёмная тема ─────────────────────────────────────────────────────────── */
+body.dark {
+  --bg:        #111110;
+  --surface:   #1C1C1A;
+  --surface-2: #242422;
+  --border:    #2E2E2C;
+  --border-2:  #3A3A38;
+  --text-1:    #EFEFEC;
+  --text-2:    #A8A89E;
+  --text-3:    #6A6A62;
+  --indigo:    #7B7BF0;
+  --indigo-l:  #1E1E38;
+  --indigo-m:  #3A3A6A;
+  --green:     #2EBD82;
+  --green-l:   #0E2A1E;
+  --amber:     #E09A20;
+  --amber-l:   #2A1E06;
+  --rose:      #E85555;
+  --rose-l:    #2A0E0E;
+  --teal:      #14B8A6;
+  --teal-l:    #0A2420;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.2);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,.5),0 3px 8px rgba(0,0,0,.3);
+}
+
+/* ── Кнопка пропуска сплэша ──────────────────────────────────────────────── */
+#splash-skip {
+  position: absolute;
+  bottom: 32px;
+  right: 32px;
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
+  color: rgba(255,255,255,.8);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background .2s, opacity .2s;
+  z-index: 10000;
+}
+#splash-skip:hover { background: rgba(255,255,255,.25); color: #fff; }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{font-family:var(--font-ui);font-size:14px;color:var(--text-1);background:var(--bg);-webkit-font-smoothing:antialiased}

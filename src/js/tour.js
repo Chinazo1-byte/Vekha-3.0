@@ -141,11 +141,18 @@ const Tour = {
   // ── Запуск тура ──────────────────────────────────────────────────────────
 
   async startIfNeeded(page) {
+    this._currentPage = page;
     let done = false;
     try {
-      done = await window.db.settings.get(`tour_done_${page}`);
+      // Сначала проверяем localStorage — быстро и надёжно
+      if (localStorage.getItem(`tour_done_${page}`)) { done = true; }
+      // Затем БД если доступна
+      if (!done && typeof window.db?.settings?.get === 'function') {
+        const val = await window.db.settings.get(`tour_done_${page}`);
+        done = !!val;
+      }
     } catch(e) {
-      // settings таблица не готова — запускаем тур в любом случае
+      console.warn('[Tour] could not check tour state, starting anyway');
     }
     if (!done) this.start(page);
   },
@@ -368,9 +375,16 @@ const Tour = {
 
     // Определяем текущий раздел по активному nav-item
     const active = document.querySelector('.nav-item.active');
-    const page   = active?.dataset?.page;
+    const page   = active?.dataset?.page || this._currentPage;
     if (page) {
-      try { await window.db.settings.set(`tour_done_${page}`, true); } catch(e) {}
+      const key = `tour_done_${page}`;
+      // Сохраняем в БД если доступно, и в localStorage как запасной вариант
+      try {
+        if (typeof window.db?.settings?.set === 'function') {
+          await window.db.settings.set(key, true);
+        }
+      } catch(e) {}
+      try { localStorage.setItem(key, '1'); } catch(e) {}
     }
 
     this._onDone(skipped);

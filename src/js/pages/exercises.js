@@ -13,7 +13,7 @@ async function loadExercisesPage() {
   renderExercisesPage();
   setTimeout(() => {
     Tour.startIfNeeded('exercises');
-  }, 400);
+  }, 800);
 }
 
 function renderExercisesPage() {
