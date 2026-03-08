@@ -332,14 +332,14 @@ const DiagPlayer = {
 
     const finishV2 = async () => {
       const { total, subscaleScores, summary } = calcV2Scores(data, answers);
-      await window.db.diagnostics.saveResult({
+      const saved = await window.db.diagnostics.saveResult({
         diagnostic_id: diag.id,
         student_id:    student?.id || null,
         answers:       answers,
         scores:        { total, subscaleScores },
         summary,
       });
-      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close());
+      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close(), saved?.id);
     };
 
     renderNext();
@@ -374,12 +374,12 @@ const DiagPlayer = {
 
     document.getElementById('dp-v2-finish').addEventListener('click', async () => {
       const { total, subscaleScores, summary } = calcV2Scores(data, answers);
-      await window.db.diagnostics.saveResult({
+      const saved = await window.db.diagnostics.saveResult({
         diagnostic_id: diag.id,
         student_id:    student?.id || null,
         answers, scores: { total, subscaleScores }, summary,
       });
-      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close());
+      showV2Result(this._el, diag, data, total, subscaleScores, summary, student, () => this.close(), saved?.id);
     });
   },
 
@@ -1441,121 +1441,419 @@ function calcV2Scores(data, answers) {
 }
 
 // Экран результата для v2
-function showV2Result(overlay, diag, data, total, subscaleScores, summary, student, onClose) {
-  const interp = data.interpretation;
+// ══════════════════════════════════════════════════════════════════════════════
+//  ЭКРАН РЕЗУЛЬТАТА v2 — ИНФОРМАТИВНАЯ КАРТОЧКА
+// ══════════════════════════════════════════════════════════════════════════════
 
-  // Если нет интерпретации — простой финальный экран
-  if (!interp || !interp.ranges?.length) {
-    const hasSubs = Object.keys(subscaleScores).length > 0;
-    const hasWeights = total !== 0 || Object.values(subscaleScores).some(v => v !== 0);
+async function showV2Result(overlay, diag, data, total, subscaleScores, summary, student, onClose, savedResultId) {
 
-    overlay.innerHTML = `
-      <div class="player-topbar">
-        <div style="font-size:15px;font-weight:600">Результат: ${escHtml(diag.name)}</div>
-      </div>
-      <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:32px 48px">
-        <div style="width:100%;max-width:640px">
-          ${hasWeights ? `
-            <div style="background:var(--indigo-l);border-radius:var(--r-xl);padding:20px 24px;margin-bottom:20px">
-              <div style="font-size:12px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:6px">Итоговая сумма</div>
-              <div style="font-size:28px;font-weight:700;color:var(--indigo)">${total}</div>
-              ${hasSubs ? `<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
-                ${Object.entries(subscaleScores).map(([s,v]) => `
-                  <div style="font-size:13px;color:var(--indigo);background:rgba(91,91,214,.12);padding:4px 12px;border-radius:12px">
-                    ${escHtml(s)}: <b>${v}</b>
-                  </div>`).join('')}
-              </div>` : ''}
-            </div>` : ''}
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px;margin-bottom:20px">
-            <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">Ответы записаны</div>
-            <div style="font-size:14px;color:var(--text-2)">${escHtml(summary)}</div>
-          </div>
-          ${student ? `<div style="background:var(--green-l);border-radius:var(--r-lg);padding:12px 16px;margin-bottom:20px;font-size:13.5px;color:var(--green)">
-            ✓ Сохранено: <b>${escHtml(student.first_name)} ${escHtml(student.last_name||'')}</b></div>` : ''}
-          <button class="btn btn-ghost" id="v2-close">Закрыть</button>
-        </div>
-      </div>`;
-    overlay.querySelector('#v2-close').addEventListener('click', onClose);
-    return;
+  // ── Вспомогательные константы ─────────────────────────────────────────────
+  const LC = {
+    norm:      { label:'Норма',                col:'var(--green)',  bg:'var(--green-l)',  border:'rgba(22,163,74,.25)',   icon:'✓' },
+    attention: { label:'Вызывает внимание',    col:'var(--amber)',  bg:'var(--amber-l)',  border:'rgba(217,119,6,.25)',   icon:'⚠' },
+    risk:      { label:'Требует консультации', col:'var(--rose)',   bg:'var(--rose-l)',   border:'rgba(220,38,38,.25)',   icon:'!' },
+    none:      { label:'',                     col:'var(--text-3)', bg:'var(--surface-2)',border:'var(--border)',         icon:'—' },
+  };
+
+  const findRange  = (ranges, val) => ranges?.find(r => val >= r.from && val <= r.to) || null;
+  const scoreRange = (ranges) => ranges?.length
+    ? { min: ranges[0].from, max: ranges[ranges.length-1].to }
+    : { min: 0, max: 1 };
+  const pct = (v, mn, mx) => Math.round(Math.max(0, Math.min(100, (v-mn)/(mx-mn)*100)));
+  const fmtDate = iso => { try { return new Date(iso).toLocaleDateString('ru-RU', {day:'numeric',month:'long',year:'numeric'}); } catch(e) { return iso; } };
+
+  const interp   = data.interpretation;
+  const hasInterp = interp?.ranges?.length > 0;
+  const mainRange = hasInterp ? findRange(interp.ranges, total) : null;
+  const level     = mainRange?.level || 'none';
+  const lc        = LC[level] || LC.none;
+
+  // ── Подшкалы: сопоставить ID → имя из data.subscales ─────────────────────
+  const subById = {};
+  (data.subscales || []).forEach(s => { subById[s.id] = s.name; });
+
+  // ── История: загрузить предыдущие результаты ──────────────────────────────
+  let history = [];
+  if (student?.id && diag.id) {
+    try {
+      history = await window.db.diagnostics.getHistory({ diagnostic_id: diag.id, student_id: student.id });
+    } catch(e) { history = []; }
+  }
+  const prevNotes = history.find(r => r.id === savedResultId)?.psychologist_notes || '';
+
+  // ── Разобрать label на секции (формат: строки с ключевыми словами) ─────────
+  // label может содержать \n\n для разделения абзацев и строки вида "• ..." для списков
+  function parseLabelSections(label) {
+    if (!label) return { heading: '', paragraphs: [], causes: [], recs: [] };
+    const lines = label.split('\n').map(l => l.trim()).filter(Boolean);
+    const heading    = lines[0] || '';
+    const paragraphs = [];
+    const causes     = [];
+    const recs       = [];
+    let mode = 'para';
+    for (let i = 1; i < lines.length; i++) {
+      const l = lines[i];
+      if (/возможн|причин/i.test(l) && l.endsWith(':')) { mode = 'causes'; continue; }
+      if (/рекоменд/i.test(l) && l.endsWith(':'))        { mode = 'recs';   continue; }
+      if (l.startsWith('•') || l.startsWith('-'))  {
+        const text = l.replace(/^[•\-]\s*/, '');
+        if (mode === 'causes') causes.push(text);
+        else if (mode === 'recs') recs.push(text);
+        else paragraphs.push(text);
+      } else {
+        if (mode === 'para') paragraphs.push(l);
+        else if (mode === 'causes') causes.push(l);
+        else recs.push(l);
+      }
+    }
+    return { heading, paragraphs, causes, recs };
   }
 
-  // Найти диапазон для total
-  const findRange = (ranges, val) => ranges?.find(r => val >= r.from && val <= r.to) || null;
-  const mainRange = findRange(interp.ranges, total);
+  const parsed = parseLabelSections(mainRange?.label || '');
+  const { min: sMin, max: sMax } = scoreRange(interp?.ranges);
+  const scoreP = pct(total, sMin, sMax);
 
-  const levelColors = { norm:'var(--green)', attention:'var(--amber)', risk:'var(--rose)', none:'var(--text-3)' };
-  const levelBgs    = { norm:'var(--green-l)', attention:'var(--amber-l)', risk:'var(--rose-l)', none:'var(--surface-2)' };
-  const levelLabels = { norm:'Норма', attention:'Вызывает внимание', risk:'Требует консультации', none:'' };
-  const level = mainRange?.level || 'none';
-  const col   = levelColors[level];
-  const bg    = levelBgs[level];
+  // ── Построить HTML карточки ───────────────────────────────────────────────
+  const studentName = student ? `${student.first_name} ${student.last_name||''}`.trim() : null;
+  const dateStr     = fmtDate(new Date().toISOString());
 
-  const hasSubs = Object.keys(subscaleScores).length > 0 && interp.subscaleRanges;
-
-  overlay.innerHTML = `
-    <div class="player-topbar">
-      <div style="font-size:15px;font-weight:600">Результат: ${escHtml(diag.name)}</div>
-    </div>
-    <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:32px 48px">
-      <div style="width:100%;max-width:680px">
-
-        <!-- Итоговый вердикт -->
-        <div style="background:${bg};border:2px solid ${col}40;border-radius:var(--r-xl);padding:24px 28px;margin-bottom:20px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${mainRange?.label ? '12px' : '0'}">
-            <div style="font-size:11px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.06em;flex:1">
-              Итог · Сумма ${total}${levelLabels[level] ? ' · ' + levelLabels[level] : ''}
-            </div>
-          </div>
-          ${mainRange?.label ? `
-            <div style="font-size:24px;font-weight:700;color:${col};line-height:1.3;margin-bottom:${mainRange?.desc ? '16px' : '0'}">
-              ${escHtml(mainRange.label)}
-            </div>` : `
-            <div style="font-size:15px;color:${col};opacity:.7">Результат за пределами заданных диапазонов</div>`}
-          ${mainRange?.desc ? `
-            <div style="background:rgba(255,255,255,.55);border-radius:var(--r-lg);padding:14px 18px;font-size:14px;line-height:1.7;color:var(--text-1);white-space:pre-wrap">
-              ${escHtml(mainRange.desc)}
-            </div>` : ''}
+  // БЛОК: Шапка
+  const blockHeader = `
+    <div class="rc-card" style="animation-delay:0s">
+      <div class="rc-sec-head">
+        <span class="rc-sec-icon">📋</span>
+        <span class="rc-sec-label">Диагностическое обследование</span>
+      </div>
+      <div style="padding:18px 22px">
+        <div style="font-size:18px;font-weight:800;color:var(--text-1);line-height:1.25;margin-bottom:8px">${escHtml(diag.name)}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:7px">
+          ${studentName ? `<span class="rc-chip">👤 ${escHtml(studentName)}</span>` : ''}
+          <span class="rc-chip">📅 ${dateStr}</span>
+          <span class="rc-chip">🔍 ${diag.fill_by === 'student' ? 'Сам ученик' : diag.fill_by === 'parent' ? 'Родитель' : 'Педагог-психолог'}</span>
         </div>
-
-        <!-- Подшкалы -->
-        ${hasSubs ? `
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden;margin-bottom:20px">
-            <div style="padding:14px 18px;border-bottom:1px solid var(--border);background:var(--surface-2)">
-              <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase">По подшкалам</div>
-            </div>
-            ${Object.entries(subscaleScores).map(([sub, val]) => {
-              const subRanges = interp.subscaleRanges?.[sub] || [];
-              const subRange  = findRange(subRanges, val);
-              const sc  = levelColors[subRange?.level || 'none'];
-              const sbg = levelBgs[subRange?.level || 'none'];
-              return `
-                <div style="border-bottom:1px solid var(--border);padding:14px 18px;background:${sbg}20">
-                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:${subRange?.desc ? '10px' : '0'}">
-                    <div style="flex:1;font-size:13.5px;font-weight:700;color:var(--text-1)">${escHtml(sub)}</div>
-                    <div style="font-size:18px;font-weight:700;color:${sc}">${val}</div>
-                    ${subRange?.label ? `
-                      <div style="font-size:12.5px;font-weight:700;color:${sc};background:${sbg};padding:4px 12px;border-radius:20px;border:1px solid ${sc}40">
-                        ${escHtml(subRange.label)}
-                      </div>` : ''}
-                  </div>
-                  ${subRange?.desc ? `
-                    <div style="font-size:13px;line-height:1.65;color:var(--text-2);white-space:pre-wrap">
-                      ${escHtml(subRange.desc)}
-                    </div>` : ''}
-                </div>`;
-            }).join('')}
-          </div>` : ''}
-
-        ${student ? `
-          <div style="background:var(--green-l);border-radius:var(--r-lg);padding:12px 16px;margin-bottom:20px;font-size:13.5px;color:var(--green)">
-            ✓ Сохранено: <b>${escHtml(student.first_name)} ${escHtml(student.last_name||'')}</b>
-          </div>` : ''}
-
-        <button class="btn btn-ghost" id="v2-close">Закрыть</button>
       </div>
     </div>`;
 
-  overlay.querySelector('#v2-close').addEventListener('click', onClose);
+  // БЛОК: Вердикт
+  const blockVerdict = hasInterp ? `
+    <div class="rc-card" style="animation-delay:.05s;border-color:${lc.border};border-width:2px">
+      <div class="rc-sec-head">
+        <span class="rc-sec-icon">📊</span>
+        <span class="rc-sec-label">Итоговый результат</span>
+      </div>
+      <div style="padding:18px 22px">
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 13px;border-radius:20px;
+             background:${lc.bg};border:1px solid ${lc.border};
+             font-size:12px;font-weight:700;color:${lc.col};margin-bottom:10px">
+          ${lc.icon} ${lc.label}
+        </div>
+        ${parsed.heading ? `<div style="font-size:18px;font-weight:800;color:${lc.col};line-height:1.3;margin-bottom:12px">${escHtml(parsed.heading)}</div>` : ''}
+        <div style="display:flex;align-items:flex-end;gap:10px;margin-bottom:14px">
+          <span style="font-size:32px;font-weight:900;color:${lc.col};line-height:1">${total}</span>
+          <span style="font-size:13px;color:var(--text-3);margin-bottom:4px">из ${sMax} баллов</span>
+        </div>
+        <!-- Прогресс-бар с зонами -->
+        <div style="margin-bottom:6px;height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden;position:relative">
+          ${interp.ranges.map(r => {
+            const rFrom = pct(r.from, sMin, sMax);
+            const rTo   = pct(r.to,   sMin, sMax);
+            const rCol  = LC[r.level||'none']?.col || 'var(--text-4)';
+            return `<div style="position:absolute;left:${rFrom}%;width:${rTo-rFrom+1}%;height:100%;background:${rCol};opacity:.18"></div>`;
+          }).join('')}
+          <div id="rc-prog-fill" style="height:100%;width:0%;background:${lc.col};border-radius:5px;
+               transition:width .9s cubic-bezier(.4,0,.2,1) .15s;position:relative;z-index:1"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-4)">
+          <span>${sMin}</span>
+          ${interp.ranges.map(r => `<span style="color:${LC[r.level||'none']?.col};font-weight:600">${escHtml(r.label.split('\n')[0].slice(0,22))}</span>`).join('')}
+          <span>${sMax}</span>
+        </div>
+      </div>
+    </div>` : `
+    <div class="rc-card" style="animation-delay:.05s">
+      <div style="padding:20px 22px;text-align:center;color:var(--text-3)">
+        <div style="font-size:36px;margin-bottom:8px">📝</div>
+        <div style="font-size:14px">Интерпретация для этой методики не задана</div>
+        <div style="font-size:13px;margin-top:4px">Итоговая сумма: <b style="color:var(--indigo)">${total}</b></div>
+      </div>
+    </div>`;
+
+  // БЛОК: Что это значит
+  const hasDesc = parsed.paragraphs.length || parsed.causes.length;
+  const blockDesc = hasDesc ? `
+    <div class="rc-card" style="animation-delay:.10s">
+      <div class="rc-sec-head">
+        <span class="rc-sec-icon">💬</span>
+        <span class="rc-sec-label">Что это значит</span>
+      </div>
+      <div style="padding:18px 22px;font-size:14px;line-height:1.75;color:var(--text-2)">
+        ${parsed.paragraphs.map(p => `<p style="margin-bottom:10px">${escHtml(p)}</p>`).join('')}
+        ${parsed.causes.length ? `
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-top:4px;margin-bottom:8px">
+            ${level === 'norm' ? 'Обратите внимание' : 'Возможные причины'}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${parsed.causes.map(c => `
+              <div style="display:flex;gap:9px;align-items:flex-start">
+                <div style="width:6px;height:6px;border-radius:50%;background:var(--text-4);flex-shrink:0;margin-top:8px"></div>
+                <span style="font-size:13.5px">${escHtml(c)}</span>
+              </div>`).join('')}
+          </div>` : ''}
+      </div>
+    </div>` : '';
+
+  // БЛОК: Рекомендации из методики + заметки психолога
+  const blockRecs = `
+    <div class="rc-card" style="animation-delay:.15s">
+      <div class="rc-sec-head">
+        <span class="rc-sec-icon">${level === 'norm' ? '✓' : '⚡'}</span>
+        <span class="rc-sec-label">Рекомендации</span>
+      </div>
+      <div style="padding:18px 22px">
+        ${parsed.recs.length ? `
+          <div style="margin-bottom:16px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:10px">Из методики</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              ${parsed.recs.map((r, i) => `
+                <div style="display:flex;gap:11px;align-items:flex-start;padding:9px 13px;
+                     background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-lg)">
+                  <div style="width:22px;height:22px;border-radius:50%;background:var(--indigo-l);color:var(--indigo);
+                       font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+                  <div style="font-size:13.5px;line-height:1.6;color:var(--text-2)">${escHtml(r)}</div>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-bottom:8px">Заметки психолога</div>
+          <textarea id="rc-notes"
+            placeholder="Дополнительные наблюдения, план работы, контекст..."
+            style="width:100%;min-height:90px;padding:11px 14px;
+                   background:var(--surface-2);border:1px solid var(--border);
+                   border-radius:var(--r-lg);font-family:inherit;font-size:13.5px;
+                   line-height:1.6;color:var(--text-1);resize:vertical;
+                   transition:border-color .15s;outline:none"
+            onfocus="this.style.borderColor='var(--indigo)'"
+            onblur="this.style.borderColor='var(--border)'"
+          >${escHtml(prevNotes)}</textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button class="btn btn-sm" id="rc-save-notes"
+              style="font-size:12px;padding:5px 14px;background:var(--indigo-l);color:var(--indigo);border-color:rgba(79,96,235,.2)">
+              Сохранить заметку
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  // БЛОК: Подшкалы
+  let blockSubs = '';
+  if (Object.keys(subscaleScores).length && interp?.subscaleRanges) {
+    const subRows = Object.entries(subscaleScores).map(([subId, val]) => {
+      const subName   = subById[subId] || subId;
+      const subRanges = interp.subscaleRanges?.[subId] || [];
+      const subRange  = findRange(subRanges, val);
+      const slc       = LC[subRange?.level || 'none'] || LC.none;
+      const { min: sn, max: sx } = scoreRange(subRanges);
+      const sp        = pct(val, sn, sx);
+      return { subId, subName, val, sn, sx, sp, subRange, slc };
+    });
+    blockSubs = `
+      <div class="rc-card" style="animation-delay:.20s">
+        <div class="rc-sec-head">
+          <span class="rc-sec-icon">📐</span>
+          <span class="rc-sec-label">По подшкалам</span>
+        </div>
+        <div style="padding:16px 22px;display:flex;flex-direction:column;gap:14px">
+          ${subRows.map((s, si) => `
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+                <span style="font-size:13px;font-weight:700;color:var(--text-1);flex:1">${escHtml(s.subName)}</span>
+                <span style="font-size:14px;font-weight:800;color:${s.slc.col}">${s.val} / ${s.sx}</span>
+                <span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;
+                      background:${s.slc.bg};color:${s.slc.col};border:1px solid ${s.slc.border}">${s.slc.label}</span>
+              </div>
+              <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
+                <div class="rc-sub-bar" data-pct="${s.sp}" data-col="${s.slc.col}"
+                     style="height:100%;width:0%;background:${s.slc.col};border-radius:3px;
+                            transition:width .7s cubic-bezier(.4,0,.2,1) ${.25+si*.08}s"></div>
+              </div>
+              ${s.subRange?.label ? `<div style="font-size:12.5px;color:var(--text-3);line-height:1.55">${escHtml(s.subRange.label.split('\n')[0])}</div>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // БЛОК: Динамика
+  let blockHistory = '';
+  if (history.length > 1 && hasInterp) {
+    const maxVal = Math.max(...history.map(h => { try { return JSON.parse(h.scores).total||0; } catch(e){return 0;} }));
+    const histItems = history.map(h => {
+      let hTotal = 0;
+      try { hTotal = JSON.parse(h.scores).total || 0; } catch(e) {}
+      const hRange = findRange(interp.ranges, hTotal);
+      const hlc    = LC[hRange?.level || 'none'] || LC.none;
+      const hp     = Math.max(8, Math.round(hTotal / (maxVal||1) * 68));
+      return { date: fmtDate(h.completed_at).replace(' г.',''), val: hTotal, col: hlc.col, hp };
+    });
+    blockHistory = `
+      <div class="rc-card" style="animation-delay:.25s">
+        <div class="rc-sec-head">
+          <span class="rc-sec-icon">📈</span>
+          <span class="rc-sec-label">Динамика (${history.length} проведений)</span>
+        </div>
+        <div style="padding:16px 22px">
+          <div style="display:flex;align-items:flex-end;gap:10px;height:88px;margin-bottom:10px">
+            ${histItems.map(h => `
+              <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1">
+                <span style="font-size:11px;font-weight:700;color:var(--text-3)">${h.val}</span>
+                <div style="flex:1;display:flex;align-items:flex-end;width:100%">
+                  <div style="width:100%;height:${h.hp}px;border-radius:4px 4px 0 0;background:${h.col};opacity:.75"></div>
+                </div>
+                <span style="font-size:10px;color:var(--text-4);text-align:center;line-height:1.3">${escHtml(h.date)}</span>
+              </div>`).join('')}
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap">
+            ${['norm','attention','risk'].map(k => `
+              <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-3)">
+                <div style="width:8px;height:8px;border-radius:50%;background:${LC[k].col}"></div>
+                <span>${LC[k].label}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ── Print CSS (инжектируем один раз) ─────────────────────────────────────
+  if (!document.getElementById('rc-print-style')) {
+    const ps = document.createElement('style');
+    ps.id = 'rc-print-style';
+    ps.textContent = `
+      @media print {
+        body > *:not(#rc-print-root) { display:none !important; }
+        #rc-print-root { display:block !important; position:static !important; }
+        .rc-topbar { display:none !important; }
+        .rc-print-header { display:block !important; }
+        .rc-actions { display:none !important; }
+        textarea#rc-notes { border:1px solid #ccc !important; background:#fff !important; }
+        .rc-card { break-inside:avoid; page-break-inside:avoid; box-shadow:none !important;
+                   border:1px solid #e0e0e0 !important; margin-bottom:12px !important; }
+      }
+      @media screen {
+        .rc-print-header { display:none; }
+        @keyframes rcIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+        .rc-card { animation:rcIn .3s ease both; }
+      }
+    `;
+    document.head.appendChild(ps);
+  }
+
+  // ── Рендер оверлея ────────────────────────────────────────────────────────
+  overlay.id = 'rc-print-root';
+  overlay.innerHTML = `
+    <!-- Печатная шапка (только при print) -->
+    <div class="rc-print-header" style="padding:16px 24px 12px;border-bottom:2px solid #e0e0e0;margin-bottom:16px">
+      ${studentName ? `<div style="font-size:16px;font-weight:700">${escHtml(studentName)}</div>` : ''}
+      <div style="font-size:14px;color:#555">${escHtml(diag.name)} · ${dateStr}</div>
+    </div>
+
+    <!-- Topbar -->
+    <div class="player-topbar rc-topbar">
+      <button class="btn btn-ghost btn-sm" id="rc-close">← Закрыть</button>
+      <div style="font-size:14px;font-weight:600;color:var(--text-2);flex:1;margin-left:8px">${escHtml(diag.name)}</div>
+      <div class="rc-actions" style="display:flex;gap:8px">
+        <button class="btn btn-sm" id="rc-print"
+          style="background:var(--indigo-l);color:var(--indigo);border-color:rgba(79,96,235,.2);font-size:12px">
+          📄 Печать / PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Тело -->
+    <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:24px 32px" id="rc-body">
+      <div style="width:100%;max-width:720px;display:flex;flex-direction:column;gap:12px">
+        ${blockHeader}
+        ${blockVerdict}
+        ${blockDesc}
+        ${blockRecs}
+        ${blockSubs}
+        ${blockHistory}
+        ${studentName ? `
+          <div style="display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:var(--r-lg);
+               background:var(--green-l);border:1px solid rgba(22,163,74,.2);
+               font-size:13px;color:var(--green);font-weight:600;animation:rcIn .3s ease both;animation-delay:.3s">
+            ✓ Результат сохранён · ${escHtml(studentName)}
+          </div>` : ''}
+      </div>
+    </div>`;
+
+  // ── Анимировать прогресс-бары ─────────────────────────────────────────────
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const pf = overlay.querySelector('#rc-prog-fill');
+      if (pf) pf.style.width = scoreP + '%';
+      overlay.querySelectorAll('.rc-sub-bar').forEach(bar => {
+        bar.style.width = bar.dataset.pct + '%';
+      });
+    }, 100);
+  });
+
+  // ── Кнопки ────────────────────────────────────────────────────────────────
+  overlay.querySelector('#rc-close').addEventListener('click', onClose);
+
+  overlay.querySelector('#rc-print').addEventListener('click', () => window.print());
+
+  const notesEl = overlay.querySelector('#rc-notes');
+  overlay.querySelector('#rc-save-notes').addEventListener('click', async () => {
+    const btn = overlay.querySelector('#rc-save-notes');
+    btn.textContent = 'Сохранение...';
+    btn.disabled = true;
+    try {
+      if (savedResultId) {
+        await window.db.diagnostics.updateNotes({ result_id: savedResultId, notes: notesEl.value });
+      }
+      btn.textContent = '✓ Сохранено';
+      btn.style.background = 'var(--green-l)';
+      btn.style.color = 'var(--green)';
+      btn.style.borderColor = 'rgba(22,163,74,.2)';
+    } catch(e) {
+      btn.textContent = 'Ошибка';
+      btn.disabled = false;
+    }
+  });
+
+  // Стили для карточек (вставить как CSS-переменные Вехи уже определены)
+  const styleId = 'rc-card-style';
+  if (!document.getElementById(styleId)) {
+    const s = document.createElement('style');
+    s.id = styleId;
+    s.textContent = `
+      .rc-card {
+        background:var(--surface);
+        border:1px solid var(--border);
+        border-radius:var(--r-xl);
+        overflow:hidden;
+      }
+      .rc-sec-head {
+        display:flex;align-items:center;gap:7px;
+        padding:11px 18px;
+        border-bottom:1px solid var(--border);
+        background:var(--surface-2);
+      }
+      .rc-sec-icon { font-size:13px; }
+      .rc-sec-label {
+        font-size:11px;font-weight:700;
+        letter-spacing:.07em;text-transform:uppercase;
+        color:var(--text-3);
+      }
+      .rc-chip {
+        display:inline-flex;align-items:center;gap:4px;
+        padding:3px 10px;border-radius:20px;
+        font-size:12px;font-weight:600;
+        background:var(--surface-2);border:1px solid var(--border);color:var(--text-3);
+      }
+    `;
+    document.head.appendChild(s);
+  }
 }
 
 // ── Публичные точки входа (вызываются из diagnostics.js) ──────────────────────

@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('db', {
     create:      (d)   => api('diagnostics:create', d),
     delete:      (id)  => api('diagnostics:delete', id),
     saveResult:  (d)   => api('diagnostics:saveResult', d),
+    getHistory:  (d)   => api('diagnostics:getHistory', d),
+    updateNotes: (d)   => api('diagnostics:updateNotes', d),
   },
   report: {
     generate: (studentId) => api('report:generate', studentId),

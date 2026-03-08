@@ -284,15 +284,36 @@ ipcMain.handle('diagnostics:delete', (_, id) => {
   return { ok: true };
 });
 ipcMain.handle('diagnostics:saveResult', (_, d) => {
-  // Try to add method_name column if not exists (migration-safe)
+  // Migration-safe column additions
   try { run("ALTER TABLE diagnostic_results ADD COLUMN method_id TEXT"); } catch(e) {}
   try { run("ALTER TABLE diagnostic_results ADD COLUMN method_name TEXT"); } catch(e) {}
+  try { run("ALTER TABLE diagnostic_results ADD COLUMN psychologist_notes TEXT DEFAULT ''"); } catch(e) {}
   const r = run(
-    'INSERT INTO diagnostic_results (diagnostic_id, student_id, answers, scores, summary, method_id, method_name) VALUES (?,?,?,?,?,?,?)',
+    'INSERT INTO diagnostic_results (diagnostic_id, student_id, answers, scores, summary, method_id, method_name, psychologist_notes) VALUES (?,?,?,?,?,?,?,?)',
     [d.diagnostic_id||null, d.student_id||null,
      JSON.stringify(d.answers||{}), JSON.stringify(d.scores||{}),
-     d.summary||'', d.method_id||null, d.method_name||null]);
+     d.summary||'', d.method_id||null, d.method_name||null, d.psychologist_notes||'']);
   return { id: r.lastInsertRowid };
+});
+
+// Получить историю результатов по конкретной диагностике + ученик
+ipcMain.handle('diagnostics:getHistory', (_, { diagnostic_id, student_id }) => {
+  try { run("ALTER TABLE diagnostic_results ADD COLUMN psychologist_notes TEXT DEFAULT ''"); } catch(e) {}
+  return queryAll(
+    `SELECT id, scores, summary, completed_at, psychologist_notes
+     FROM diagnostic_results
+     WHERE diagnostic_id = ? AND student_id = ?
+     ORDER BY completed_at ASC`,
+    [diagnostic_id, student_id]
+  );
+});
+
+// Обновить заметки психолога по результату
+ipcMain.handle('diagnostics:updateNotes', (_, { result_id, notes }) => {
+  try { run("ALTER TABLE diagnostic_results ADD COLUMN psychologist_notes TEXT DEFAULT ''"); } catch(e) {}
+  run('UPDATE diagnostic_results SET psychologist_notes = ? WHERE id = ?', [notes, result_id]);
+  saveDb();
+  return { ok: true };
 });
 
 // ── IPC — Файлы ──────────────────────────────────────────────────────────────

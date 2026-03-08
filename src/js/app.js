@@ -102,22 +102,25 @@ function initLibraryButtons() {
 
 async function exportLibrary() {
   try {
-    const exercises = await window.db.exercises.getAll();
-    const sessions  = await window.db.sessions.getAll();
+    const exercises    = await window.db.exercises.getAll();
+    const sessions     = await window.db.sessions.getAll();
+    const diagnostics  = (await window.db.diagnostics.getAll()).filter(d => !d.is_builtin);
 
     const exWithContent = await Promise.all(exercises.map(ex => window.db.exercises.get(ex.id)));
+    const diagWithContent = await Promise.all(diagnostics.map(d => window.db.diagnostics.get(d.id)));
 
     const payload = {
-      version:   '1.0',
-      app:       'Веха',
-      exported:  new Date().toISOString(),
-      exercises: exWithContent,
-      sessions:  sessions,
+      version:     '1.0',
+      app:         'Веха',
+      exported:    new Date().toISOString(),
+      exercises:   exWithContent,
+      sessions:    sessions,
+      diagnostics: diagWithContent,
     };
 
     const result = await window.db.library.export(payload);
     if (result.canceled) return;
-    if (result.ok) toast(`Экспортировано: ${exWithContent.length} упражнений, ${sessions.length} занятий`, 'success');
+    if (result.ok) toast(`Экспортировано: ${exWithContent.length} упражнений, ${sessions.length} занятий, ${diagWithContent.length} диагностик`, 'success');
   } catch(e) {
     toast('Ошибка экспорта: ' + e.message, 'error');
   }
@@ -134,12 +137,13 @@ async function importLibrary() {
     return;
   }
 
-  const exCount  = (data.exercises || []).length;
-  const sesCount = (data.sessions  || []).length;
+  const exCount   = (data.exercises   || []).length;
+  const sesCount  = (data.sessions    || []).length;
+  const diagCount = (data.diagnostics || []).length;
 
-  Modal.confirm('Импортировать библиотеку?', `Будет добавлено: <b>${exCount}</b> упражнений и <b>${sesCount}</b> занятий.<br>
+  Modal.confirm('Импортировать библиотеку?', `Будет добавлено: <b>${exCount}</b> упражнений, <b>${sesCount}</b> занятий, <b>${diagCount}</b> диагностик.<br>
      <small style="color:var(--text-3)">Существующие данные не удаляются — импорт добавляется поверх.</small>`,
-  async () => { try { let addedEx = 0, addedSes = 0;
+  async () => { try { let addedEx = 0, addedSes = 0, addedDiag = 0;
         const idMap = {};
 
         for (const ex of (data.exercises || [])) {
@@ -166,7 +170,17 @@ async function importLibrary() {
           addedSes++;
         }
 
-        toast(`Импортировано: ${addedEx} упражнений, ${addedSes} занятий`, 'success');
+        for (const diag of (data.diagnostics || [])) {
+          await window.db.diagnostics.create({
+            name:        diag.name + ' (импорт)',
+            description: diag.description || '',
+            fill_by:     diag.fill_by || 'teacher',
+            questions:   diag.questions || { version: 2, elements: [], subscales: [], interpretation: null },
+          });
+          addedDiag++;
+        }
+
+        toast(`Импортировано: ${addedEx} упражнений, ${addedSes} занятий, ${addedDiag} диагностик`, 'success');
         await Router.go(Router._current || 'exercises');
       } catch(e) {
         toast('Ошибка импорта: ' + e.message, 'error');
@@ -174,3 +188,4 @@ async function importLibrary() {
     }
   , 'Импортировать', false);
 }
+
