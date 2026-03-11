@@ -148,7 +148,7 @@ async function importLibrary() {
           const mapped = exIds.map(id => idMap[id] ?? id);
           await window.db.sessions.create({
             name:         ses.name + ' (импорт)',
-            exercise_ids: JSON.stringify(mapped),
+            exercise_ids: mapped,
             notes:        ses.notes || '',
           });
           addedSes++;

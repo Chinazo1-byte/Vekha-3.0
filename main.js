@@ -436,7 +436,6 @@ ipcMain.handle('report:generate', async (_, studentId) => {
 
   try {
     const pdfData = await win.webContents.printToPDF({
-      marginsType:      0,
       printBackground:  true,
       pageSize:         'A4',
       landscape:        false,

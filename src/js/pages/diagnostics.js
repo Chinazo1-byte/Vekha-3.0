@@ -128,7 +128,10 @@ function renderBuiltinCard(m) {
 // ── Карточка пользовательского опросника ─────────────────────────────────────
 function renderCustomCard(d) {
   let qCount = 0;
-  try { qCount = JSON.parse(d.questions || '[]').length; } catch(e) {}
+  try {
+    const q = typeof d.questions === 'string' ? JSON.parse(d.questions) : d.questions;
+    qCount = (q?.version === 2) ? (q.elements?.length || 0) : (Array.isArray(q) ? q.length : 0);
+  } catch(e) {}
   return `
     <div class="exercise-card">
       <div class="card-actions">
