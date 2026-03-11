@@ -1432,10 +1432,15 @@ function calcV2Scores(data, answers) {
     }
   });
 
-  const answered = Object.keys(answers).length;
-  const summary  = data.interpretation
-    ? `Сумма: ${total}`
-    : `${answered} ответов`;
+  const answered  = Object.keys(answers).length;
+  const _findR    = (ranges, val) => ranges?.find(r => val >= r.from && val <= r.to) || null;
+  const mainRange = data.interpretation?.ranges?.length ? _findR(data.interpretation.ranges, total) : null;
+  const rangeHead = mainRange?.label?.split('\n')[0]?.trim();
+  const summary   = rangeHead
+    ? `Сумма: ${total} — ${rangeHead}`
+    : data.interpretation
+      ? `Сумма: ${total}`
+      : `${answered} ответов`;
 
   return { total, subscaleScores, summary };
 }
@@ -1468,9 +1473,9 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
   const level     = mainRange?.level || 'none';
   const lc        = LC[level] || LC.none;
 
-  // ── Подшкалы: сопоставить ID → имя из data.subscales ─────────────────────
+  // ── Подшкалы: data.subscales — массив строк (имён) из конструктора ─────────
+  // subById не используется; subscaleScores и subscaleRanges уже keyed по имени
   const subById = {};
-  (data.subscales || []).forEach(s => { subById[s.id] = s.name; });
 
   // ── История: загрузить предыдущие результаты ──────────────────────────────
   let history = [];
@@ -1579,7 +1584,10 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
     </div>`;
 
   // БЛОК: Что это значит
-  const hasDesc = parsed.paragraphs.length || parsed.causes.length;
+  // desc — поле из конструктора диагностик (шаг 3, textarea)
+  // parsed.paragraphs/causes — для встроенных методик с многострочным label
+  const descText  = mainRange?.desc?.trim() || '';
+  const hasDesc   = descText || parsed.paragraphs.length || parsed.causes.length;
   const blockDesc = hasDesc ? `
     <div class="rc-card" style="animation-delay:.10s">
       <div class="rc-sec-head">
@@ -1587,6 +1595,7 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
         <span class="rc-sec-label">Что это значит</span>
       </div>
       <div style="padding:18px 22px;font-size:14px;line-height:1.75;color:var(--text-2)">
+        ${descText ? descText.split('\n').map(p => p.trim() ? `<p style="margin-bottom:10px">${escHtml(p)}</p>` : '').join('') : ''}
         ${parsed.paragraphs.map(p => `<p style="margin-bottom:10px">${escHtml(p)}</p>`).join('')}
         ${parsed.causes.length ? `
           <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin-top:4px;margin-bottom:8px">
@@ -1678,6 +1687,7 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
                             transition:width .7s cubic-bezier(.4,0,.2,1) ${.25+si*.08}s"></div>
               </div>
               ${s.subRange?.label ? `<div style="font-size:12.5px;color:var(--text-3);line-height:1.55">${escHtml(s.subRange.label.split('\n')[0])}</div>` : ''}
+              ${s.subRange?.desc?.trim() ? `<div style="font-size:12.5px;color:var(--text-2);line-height:1.65;margin-top:5px">${s.subRange.desc.trim().split('\n').map(l => escHtml(l)).join('<br>')}</div>` : ''}
             </div>`).join('')}
         </div>
       </div>`;

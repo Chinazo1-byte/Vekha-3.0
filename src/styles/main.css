@@ -476,3 +476,105 @@ textarea.input-field{resize:vertical;min-height:80px;line-height:1.5}
 #splash-video{width:100%;height:100%;object-fit:cover}
 /* ── brand-sub ────────────────────────────────────────────────────────── */
 .brand-sub{font-size:13px;color:var(--text-3);font-weight:400;margin-top:2px}
+
+/* ── Кастомный тайтлбар ────────────────────────────────────────────────────── */
+:root { --tb-h: 36px; }
+
+#custom-titlebar {
+  display: none;
+  height: var(--tb-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  padding: 0 8px;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 8000;
+}
+body.windowed #custom-titlebar { display: flex; }
+body.windowed #app { margin-top: var(--tb-h); height: calc(100vh - var(--tb-h)); }
+
+.tb-left  { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.tb-drag  { flex: 1; height: 100%; -webkit-app-region: drag; cursor: default; }
+.tb-controls { display: flex; gap: 2px; flex-shrink: 0; }
+
+.tb-btn {
+  width: 32px; height: 26px;
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 5px;
+  color: var(--text-3);
+  transition: background .12s, color .12s;
+}
+.tb-btn:hover { background: var(--hover); color: var(--text-1); }
+.tb-btn-close:hover { background: #ef4444; color: #fff; }
+
+/* ── Страница настроек ─────────────────────────────────────────────────────── */
+.settings-page {
+  max-width: 640px;
+  padding: 32px;
+}
+.settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.settings-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-3);
+  margin-bottom: 14px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+.settings-row:first-of-type { padding-top: 0; }
+.settings-row-label { font-size: 14px; color: var(--text-1); font-weight: 500; }
+.settings-row-sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+.toggle {
+  position: relative; width: 40px; height: 22px; flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: var(--border); border-radius: 11px;
+  cursor: pointer; transition: background .2s;
+}
+.toggle input:checked + .toggle-track { background: var(--indigo); }
+.toggle-track::after {
+  content: '';
+  position: absolute; left: 3px; top: 3px;
+  width: 16px; height: 16px;
+  background: #fff; border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+.settings-btn-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+/* ── Windowed: оверлеи не залезают под тайтлбар ────────────────────────────── */
+body.windowed .editor-overlay,
+body.windowed .player-overlay {
+  top: var(--tb-h);
+}
+body.windowed .detail-panel {
+  top: var(--tb-h);
+}
+body.windowed #modal-overlay {
+  top: var(--tb-h);
+}

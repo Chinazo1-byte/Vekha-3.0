@@ -141,12 +141,24 @@ function run(sql, params = []) {
 // ── Electron window ──────────────────────────────────────────────────────────
 let mainWin = null;
 
-function createWindow() {
+async function createWindow() {
+  let windowed = true; // по умолчанию — оконный режим
+  try {
+    const r = db.exec(`SELECT value FROM settings WHERE key = 'fullscreen_mode'`);
+    if (r.length && r[0].values.length) {
+      windowed = JSON.parse(r[0].values[0][0]) !== true;
+    }
+  } catch(e) {}
+
+  const isDev = process.argv.includes('--dev');
+
   mainWin = new BrowserWindow({
     width: 1280, height: 820,
     minWidth: 1024, minHeight: 680,
     backgroundColor: '#0F0F0F',
-    fullscreen: !process.argv.includes('--dev'),
+    fullscreen: !isDev && !windowed,
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -156,13 +168,18 @@ function createWindow() {
   });
   mainWin.removeMenu();
   mainWin.loadFile(path.join(__dirname, 'src', 'index.html'));
-  mainWin.once('ready-to-show', () => mainWin.show());
-  if (process.argv.includes('--dev')) mainWin.webContents.openDevTools({ mode: 'detach' });
+  mainWin.once('ready-to-show', () => {
+    mainWin.show();
+    mainWin.webContents.send('window:mode', windowed ? 'windowed' : 'fullscreen');
+  });
+  mainWin.on('maximize',   () => mainWin.webContents.send('window:state', { maximized: true }));
+  mainWin.on('unmaximize', () => mainWin.webContents.send('window:state', { maximized: false }));
+  if (isDev) mainWin.webContents.openDevTools({ mode: 'detach' });
 }
 
 app.whenReady().then(async () => {
   await initDatabase();
-  createWindow();
+  await createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
@@ -446,6 +463,26 @@ ipcMain.handle('report:saveAs', async (_, pdfPath) => {
   if (result.canceled || !result.filePath) return { canceled: true };
   fs.copyFileSync(pdfPath, result.filePath);
   return { path: result.filePath };
+});
+
+// ── IPC — Управление окном ────────────────────────────────────────────────────
+ipcMain.handle('window:minimize',    () => { mainWin?.minimize(); });
+ipcMain.handle('window:maximize',    () => { mainWin?.isMaximized() ? mainWin.unmaximize() : mainWin.maximize(); });
+ipcMain.handle('window:close',       () => { mainWin?.close(); });
+ipcMain.handle('window:isMaximized', () => mainWin?.isMaximized() ?? false);
+ipcMain.handle('window:setMode', async (_, mode) => {
+  db.run(`INSERT OR REPLACE INTO settings (key, value) VALUES ('fullscreen_mode', ?)`,
+    [JSON.stringify(mode === 'fullscreen')]);
+  saveDb();
+  if (mode === 'fullscreen') {
+    mainWin?.setFullScreen(true);
+    mainWin?.setResizable(false);
+  } else {
+    mainWin?.setFullScreen(false);
+    mainWin?.setResizable(true);
+  }
+  mainWin?.webContents.send('window:mode', mode);
+  return { ok: true };
 });
 
 // ── Выход из приложения ───────────────────────────────────────────────────────

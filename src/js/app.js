@@ -24,7 +24,7 @@ function initSplash() {
 
   document.addEventListener('keydown', onKey);
   video.addEventListener('ended', hideSplash);
-  setTimeout(hideSplash, 9000); // страховка на 9 сек
+  setTimeout(hideSplash, 9000);
   video.play().catch(() => hideSplash());
 }
 
@@ -34,22 +34,29 @@ async function initDarkTheme() {
   if (isDark) document.body.classList.add('dark');
 }
 
-function initDarkToggle() {
-  const btn = document.getElementById('dark-toggle-btn');
-  if (!btn) return;
-  const isDark = () => document.body.classList.contains('dark');
-  const updateBtn = () => {
-    btn.querySelector('#dark-label').textContent = isDark() ? 'Светлая тема' : 'Тёмная тема';
-    btn.querySelector('#dark-icon').innerHTML = isDark()
-      ? `<circle cx="10" cy="10" r="4" fill="currentColor"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.93 4.93l1.41 1.41M13.66 13.66l1.41 1.41M4.93 15.07l1.41-1.41M13.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`
-      : `<path d="M17 12a7 7 0 1 1-7-7 5 5 0 0 0 7 7z" fill="currentColor" opacity=".9"/>`;
-  };
-  updateBtn();
-  btn.addEventListener('click', async () => {
-    document.body.classList.toggle('dark');
-    await window.db.settings.set('dark_theme', isDark()).catch(() => {});
-    updateBtn();
+// ── Тайтлбар ──────────────────────────────────────────────────────────────────
+async function initTitlebar() {
+  if (!window.db?.window) return;
+
+  // Применить начальный режим
+  const isFullscreen = await window.db.settings.get('fullscreen_mode').catch(() => false);
+  if (!isFullscreen) document.body.classList.add('windowed');
+
+  window.db.window.onMode(mode => {
+    document.body.classList.toggle('windowed', mode === 'windowed');
   });
+
+  window.db.window.onState(state => {
+    const icon = document.querySelector('#tb-maximize svg');
+    if (!icon) return;
+    icon.innerHTML = state.maximized
+      ? '<path d="M3 7h7v7H3zM7 3h7v7H7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>'
+      : '<rect x="1" y="1" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>';
+  });
+
+  document.getElementById('tb-minimize')?.addEventListener('click', () => window.db.window.minimize());
+  document.getElementById('tb-maximize')?.addEventListener('click', () => window.db.window.maximize());
+  document.getElementById('tb-close')?.addEventListener('click',    () => window.db.window.close());
 }
 
 // ── Инициализация приложения ──────────────────────────────────────────────────
@@ -57,31 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initDarkTheme();
   initSplash();
   await Router.go('students');
-  initSoundToggle();
   initQuitButton();
-  initLibraryButtons();
-  initDarkToggle();
+  initTitlebar();
 });
-
-// ── Кнопка звука ──────────────────────────────────────────────────────────────
-function initSoundToggle() {
-  function update() {
-    const on    = Sound.isEnabled();
-    const btn   = document.getElementById('sound-toggle-btn');
-    const label = document.getElementById('sound-label');
-    const wave  = document.getElementById('sound-wave-1');
-    if (!btn) return;
-    label.textContent = on ? 'Звук включён' : 'Звук выключен';
-    btn.style.opacity = on ? '1' : '0.5';
-    if (wave) wave.style.display = on ? '' : 'none';
-  }
-  document.getElementById('sound-toggle-btn')?.addEventListener('click', () => {
-    Sound.setEnabled(!Sound.isEnabled());
-    if (Sound.isEnabled()) Sound.click();
-    update();
-  });
-  update();
-}
 
 // ── Кнопка выхода ─────────────────────────────────────────────────────────────
 function initQuitButton() {
@@ -95,18 +80,13 @@ function initQuitButton() {
 }
 
 // ── Экспорт / импорт библиотеки ───────────────────────────────────────────────
-function initLibraryButtons() {
-  document.getElementById('btn-export-library')?.addEventListener('click', exportLibrary);
-  document.getElementById('btn-import-library')?.addEventListener('click', importLibrary);
-}
-
 async function exportLibrary() {
   try {
-    const exercises    = await window.db.exercises.getAll();
-    const sessions     = await window.db.sessions.getAll();
-    const diagnostics  = (await window.db.diagnostics.getAll()).filter(d => !d.is_builtin);
+    const exercises   = await window.db.exercises.getAll();
+    const sessions    = await window.db.sessions.getAll();
+    const diagnostics = (await window.db.diagnostics.getAll()).filter(d => !d.is_builtin);
 
-    const exWithContent = await Promise.all(exercises.map(ex => window.db.exercises.get(ex.id)));
+    const exWithContent   = await Promise.all(exercises.map(ex => window.db.exercises.get(ex.id)));
     const diagWithContent = await Promise.all(diagnostics.map(d => window.db.diagnostics.get(d.id)));
 
     const payload = {
@@ -141,13 +121,17 @@ async function importLibrary() {
   const sesCount  = (data.sessions    || []).length;
   const diagCount = (data.diagnostics || []).length;
 
-  Modal.confirm('Импортировать библиотеку?', `Будет добавлено: <b>${exCount}</b> упражнений, <b>${sesCount}</b> занятий, <b>${diagCount}</b> диагностик.<br>
+  Modal.confirm(
+    'Импортировать библиотеку?',
+    `Будет добавлено: <b>${exCount}</b> упражнений, <b>${sesCount}</b> занятий, <b>${diagCount}</b> диагностик.<br>
      <small style="color:var(--text-3)">Существующие данные не удаляются — импорт добавляется поверх.</small>`,
-  async () => { try { let addedEx = 0, addedSes = 0, addedDiag = 0;
+    async () => {
+      try {
+        let addedEx = 0, addedSes = 0, addedDiag = 0;
         const idMap = {};
 
         for (const ex of (data.exercises || [])) {
-          const oldId = ex.id;
+          const oldId   = ex.id;
           const created = await window.db.exercises.create({
             name:       ex.name + ' (импорт)',
             type:       ex.type,
@@ -185,7 +169,7 @@ async function importLibrary() {
       } catch(e) {
         toast('Ошибка импорта: ' + e.message, 'error');
       }
-    }
-  , 'Импортировать', false);
+    },
+    'Импортировать', false
+  );
 }
-

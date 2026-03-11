@@ -61,4 +61,13 @@ contextBridge.exposeInMainWorld('db', {
     get: (key)        => api('settings:get', key),
     set: (key, value) => api('settings:set', key, value),
   },
+  window: {
+    minimize:    ()       => api('window:minimize'),
+    maximize:    ()       => api('window:maximize'),
+    close:       ()       => api('window:close'),
+    isMaximized: ()       => api('window:isMaximized'),
+    setMode:     (mode)   => api('window:setMode', mode),
+    onMode:  (cb) => { ipcRenderer.on('window:mode',  (_, v) => cb(v)); },
+    onState: (cb) => { ipcRenderer.on('window:state', (_, v) => cb(v)); },
+  },
 });
