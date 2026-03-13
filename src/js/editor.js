@@ -112,7 +112,9 @@ async function loadLazyImages(container) {
   const imgs = (container || document).querySelectorAll('img.lazy-img');
   for (const img of imgs) {
     const p = img.dataset.path;
-    if (p && !img.src.startsWith('data:')) {
+    if (!p) continue;
+    if (p.startsWith('data:')) { img.src = p; continue; }
+    if (!img.src.startsWith('data:')) {
       const d = await window.db.files.getImageData(p);
       if (d) img.src = d;
     }

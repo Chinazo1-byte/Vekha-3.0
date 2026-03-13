@@ -80,6 +80,50 @@ function initQuitButton() {
 }
 
 // ── Экспорт / импорт библиотеки ───────────────────────────────────────────────
+// ── Картинки в экспорте/импорте ───────────────────────────────────────────────
+// Поля контента упражнений, которые могут хранить путь к файлу
+const IMAGE_FIELDS = ['img', 'question_img', 'answer_img', 'a_img', 'b_img', 'image'];
+
+// Рекурсивно обходит объект и конвертирует пути к картинкам в base64 data URL
+async function embedImages(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) obj[i] = await embedImages(obj[i]);
+    return obj;
+  }
+  for (const key of Object.keys(obj)) {
+    if (IMAGE_FIELDS.includes(key) && typeof obj[key] === 'string' && obj[key] && !obj[key].startsWith('data:')) {
+      try {
+        const dataUrl = await window.db.files.getImageData(obj[key]);
+        if (dataUrl) obj[key] = dataUrl;
+      } catch(e) { /* файл не найден — оставить как есть */ }
+    } else {
+      obj[key] = await embedImages(obj[key]);
+    }
+  }
+  return obj;
+}
+
+// Рекурсивно обходит объект и сохраняет data URL картинок на диск, заменяя на путь
+async function extractImages(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) obj[i] = await extractImages(obj[i]);
+    return obj;
+  }
+  for (const key of Object.keys(obj)) {
+    if (IMAGE_FIELDS.includes(key) && typeof obj[key] === 'string' && obj[key].startsWith('data:')) {
+      try {
+        const filePath = await window.db.files.saveImageData(obj[key]);
+        if (filePath) obj[key] = filePath;
+      } catch(e) { /* оставить data URL если не удалось сохранить */ }
+    } else {
+      obj[key] = await extractImages(obj[key]);
+    }
+  }
+  return obj;
+}
+
 async function exportLibrary() {
   try {
     const exercises   = await window.db.exercises.getAll();
@@ -88,6 +132,21 @@ async function exportLibrary() {
 
     const exWithContent   = await Promise.all(exercises.map(ex => window.db.exercises.get(ex.id)));
     const diagWithContent = await Promise.all(diagnostics.map(d => window.db.diagnostics.get(d.id)));
+
+    // Встраиваем картинки как base64 в content каждого упражнения
+    for (const ex of exWithContent) {
+      try {
+        const content = typeof ex.content === 'string' ? JSON.parse(ex.content) : ex.content;
+        ex.content = JSON.stringify(await embedImages(content));
+      } catch(e) {}
+    }
+    // Диагностики: stimulus.image в элементах
+    for (const d of diagWithContent) {
+      try {
+        const q = typeof d.questions === 'string' ? JSON.parse(d.questions) : d.questions;
+        d.questions = await embedImages(q);
+      } catch(e) {}
+    }
 
     const payload = {
       version:     '1.0',
@@ -131,12 +190,18 @@ async function importLibrary() {
         const idMap = {};
 
         for (const ex of (data.exercises || [])) {
-          const oldId   = ex.id;
+          const oldId = ex.id;
+          // Сохраняем base64-картинки на диск, получаем пути
+          let content = ex.content || '{}';
+          try {
+            const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+            content = JSON.stringify(await extractImages(parsed));
+          } catch(e) {}
           const created = await window.db.exercises.create({
             name:       ex.name + ' (импорт)',
             type:       ex.type,
             difficulty: ex.difficulty || 'medium',
-            content:    ex.content || '{}',
+            content,
           });
           idMap[oldId] = created.id;
           addedEx++;
@@ -155,11 +220,13 @@ async function importLibrary() {
         }
 
         for (const diag of (data.diagnostics || [])) {
+          let questions = diag.questions || { version: 2, elements: [], subscales: [], interpretation: null };
+          try { questions = await extractImages(questions); } catch(e) {}
           await window.db.diagnostics.create({
             name:        diag.name + ' (импорт)',
             description: diag.description || '',
             fill_by:     diag.fill_by || 'teacher',
-            questions:   diag.questions || { version: 2, elements: [], subscales: [], interpretation: null },
+            questions,
           });
           addedDiag++;
         }

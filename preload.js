@@ -46,9 +46,10 @@ contextBridge.exposeInMainWorld('db', {
     saveAs:   (path)      => api('report:saveAs', path),
   },
   files: {
-    pickImage:    ()       => api('files:pickImage'),
-    getImageData: (path)   => api('files:getImageData', path),
-    pickJson:     ()       => api('files:pickJson'),
+    pickImage:     ()         => api('files:pickImage'),
+    getImageData:  (path)     => api('files:getImageData', path),
+    saveImageData: (dataUrl)  => api('files:saveImageData', dataUrl),
+    pickJson:      ()         => api('files:pickJson'),
   },
   library: {
     export: (data) => api('library:export', data),

@@ -162,8 +162,11 @@ function _playerShowResult(el, player, correct, total, durationSec, onRetry) {
 async function loadPlayerImages(container) {
   const imgs = container.querySelectorAll('img[data-path]');
   for (const img of imgs) {
+    const p = img.dataset.path;
+    if (!p) continue;
+    if (p.startsWith('data:')) { img.src = p; continue; }
     if (!img.src || img.src === window.location.href) {
-      const d = await window.db.files.getImageData(img.dataset.path);
+      const d = await window.db.files.getImageData(p);
       if (d) img.src = d;
     }
   }

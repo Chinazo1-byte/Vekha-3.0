@@ -355,6 +355,21 @@ ipcMain.handle('files:getImageData', (_, filePath) => {
   return `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
 });
 
+// Сохранить base64-картинку в userData/images/, вернуть путь (используется при импорте)
+ipcMain.handle('files:saveImageData', (_, dataUrl) => {
+  try {
+    const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
+    if (!match) return null;
+    const ext  = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const data = Buffer.from(match[2], 'base64');
+    const dir  = path.join(app.getPath('userData'), 'images');
+    fs.mkdirSync(dir, { recursive: true });
+    const dest = path.join(dir, `${Date.now()}_imported.${ext}`);
+    fs.writeFileSync(dest, data);
+    return dest;
+  } catch(e) { return null; }
+});
+
 ipcMain.handle('files:pickJson', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
