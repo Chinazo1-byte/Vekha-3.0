@@ -30,6 +30,7 @@ const Player = {
       const map = {
         visual_match:  () => pt.visualMatch(ex, content, studentId, self),
         find_pairs:    () => pt.findPairs(ex, content, studentId, self),
+        memory_game:   () => pt.memory_game(ex, content, studentId, self),
         odd_one_out:   () => pt.oddOneOut(ex, content, studentId, self),
         sorting:       () => pt.sorting(ex, content, studentId, self),
         sequencing:    () => pt.sequencing(ex, content, studentId, self),
@@ -162,96 +163,245 @@ function _playerShowResult(el, player, correct, total, durationSec, onRetry) {
 async function loadPlayerImages(container) {
   const imgs = container.querySelectorAll('img[data-path]');
   for (const img of imgs) {
-    const p = img.dataset.path;
-    if (!p) continue;
-    if (p.startsWith('data:')) { img.src = p; continue; }
     if (!img.src || img.src === window.location.href) {
-      const d = await window.db.files.getImageData(p);
+      const d = await window.db.files.getImageData(img.dataset.path);
       if (d) img.src = d;
     }
   }
 }
 
+// ── Линии соединения для упражнения «Сопоставление» ──────────────────────────
+// arenaSelector — CSS-селектор контейнера с position:relative (по умолчанию #vm-arena)
+function _drawMatchLines(el, leftItems, rightItems, matched, arenaSelector) {
+  const sel   = arenaSelector || '#vm-arena';
+  const arena = el.querySelector(sel);
+  if (!arena) return;
+
+  arena.querySelector('.vm-lines-svg')?.remove();
+
+  const matchedEntries = Object.entries(matched);
+  if (!matchedEntries.length) return;
+
+  const arenaRect = arena.getBoundingClientRect();
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('vm-lines-svg');
+  svg.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:10';
+  svg.setAttribute('width', arenaRect.width);
+  svg.setAttribute('height', arenaRect.height);
+
+  matchedEntries.forEach(([leftIdx, rightIdx]) => {
+    const leftCard  = el.querySelector(`[data-left="${leftIdx}"]`);
+    const rightCard = el.querySelector(`[data-right="${rightIdx}"]`);
+    if (!leftCard || !rightCard) return;
+
+    const lr = leftCard.getBoundingClientRect();
+    const rr = rightCard.getBoundingClientRect();
+
+    const x1 = lr.right  - arenaRect.left;
+    const y1 = lr.top    - arenaRect.top  + lr.height / 2;
+    const x2 = rr.left   - arenaRect.left;
+    const y2 = rr.top    - arenaRect.top  + rr.height / 2;
+    const cx = (x1 + x2) / 2;
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'var(--green)');
+    path.setAttribute('stroke-width', '3.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('opacity', '0.85');
+    svg.appendChild(path);
+  });
+
+  arena.appendChild(svg);
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 const PlayerTypes = {
 
-  // ── Visual Match ────────────────────────────────────────────────────────────
-  visualMatch(ex, content, studentId, player) {
+  // ── Visual Match — два столбца, соединение нажатием ─────────────────────────
+  async visualMatch(ex, content, studentId, player) {
     const items = content.items || [];
-    if (!items.length) {
+    if (items.length < 2) {
       player._el.innerHTML = `
         <div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div>
         <div class="player-body"><div class="player-card" style="text-align:center">
-          <div style="font-size:18px;color:var(--text-3)">Упражнение пусто — откройте редактор и добавьте задания.</div>
+          <div style="font-size:18px;color:var(--text-3)">Нужно минимум 2 пары — откройте редактор и добавьте их.</div>
         </div></div>`;
       bindCloseBtn(player._el);
       return;
     }
 
-    const shuffled  = [...items].sort(() => Math.random() - .5);
-    let idx = 0, correct = 0;
-    const answers   = [];
+    const el        = player._el;
     const startTime = Date.now();
 
-    function render() {
-      if (idx >= shuffled.length) {
-        const dur = Math.round((Date.now() - startTime) / 1000);
-        player._saveResult(studentId, ex.id, correct, shuffled.length, answers, dur);
-        showResult(player._el, correct, shuffled.length);
-        return;
+    const leftItems  = items.map((item, i) => ({ ...item, idx: i }));
+    const rightItems = [...items.map((item, i) => ({ ...item, idx: i }))]
+      .sort(() => Math.random() - .5);
+    let attempts = 0;
+    while (rightItems.some((r, i) => r.idx === i) && attempts < 20) {
+      rightItems.sort(() => Math.random() - .5);
+      attempts++;
+    }
+
+    const matched          = {};        // leftIdx → rightIdx
+    const firstAttemptFail = new Set(); // leftIdx, где была ошибка до верного ответа
+    let selectedRight = null;
+
+    async function tryMatch(leftIdx, rightIdx) {
+      if (matched[leftIdx] !== undefined) return;
+      if (Object.values(matched).map(Number).includes(rightIdx)) return;
+      const isCorrect = leftIdx === rightIdx;
+      if (isCorrect) {
+        matched[leftIdx] = rightIdx;
+        selectedRight = null;
+        Sound.success();
+        await render();
+        const done = Object.keys(matched).length;
+        if (done === items.length) {
+          const correctCount = items.length - firstAttemptFail.size;
+          const dur = Math.round((Date.now() - startTime) / 1000);
+          player._saveResult(studentId, ex.id, correctCount, items.length, matched, dur);
+          setTimeout(() => {
+            PlayerTypes._showResult(el, player, correctCount, items.length, dur, async () => {
+              Object.keys(matched).forEach(k => delete matched[k]);
+              firstAttemptFail.clear(); selectedRight = null;
+              rightItems.sort(() => Math.random() - .5);
+              await render();
+            });
+          }, 500);
+        }
+      } else {
+        firstAttemptFail.add(leftIdx); // ошибка — этот левый теперь не идёт в зачёт
+        Sound.error();
+        const slot = el.querySelector(`[data-left="${leftIdx}"]`);
+        const chip = el.querySelector(`[data-right="${rightIdx}"]`);
+        slot?.classList.add('wrong'); chip?.classList.add('wrong');
+        setTimeout(() => { slot?.classList.remove('wrong'); chip?.classList.remove('wrong'); }, 700);
       }
+    }
 
-      const item    = shuffled[idx];
-      let options   = [{ text: item.answer, img: item.answer_img, correct: true }];
-      const pool    = items.filter(it => it !== item).map(it => ({ text: it.answer, img: it.answer_img, correct: false }));
-      const dist    = (item.distractors || []).map(d => ({ text: d, img: '', correct: false }));
-      const wrongs  = [...dist, ...pool].sort(() => Math.random() - .5).slice(0, 3);
-      options       = [...options, ...wrongs].sort(() => Math.random() - .5).slice(0, 4);
+    const THUMB = 'width:100px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0';
+    const THUMB_CONTAIN = 'width:100px;height:100px;object-fit:contain;border-radius:10px;flex-shrink:0;background:var(--surface-2)';
 
-      player._el.innerHTML = playerTopbar(ex.name, idx, shuffled.length) + `
-        <div class="player-body">
-          <div class="player-card">
-            <div class="player-question">
-              ${item.question_img ? `<img data-path="${escHtml(item.question_img)}" style="max-width:380px;max-height:260px;border-radius:12px;object-fit:contain;display:block;margin:0 auto 12px">` : ''}
-              ${item.question ? escHtml(item.question) : ''}
+    const render = async () => {
+      const done  = Object.keys(matched).length;
+      const total = items.length;
+      const pct   = Math.round(done / total * 100);
+      const unmatchedRight = rightItems.filter(r => !Object.values(matched).map(Number).includes(r.idx));
+      const hasImages = items.some(i => i.question_img || i.answer_img);
+      const IMG_H = '180px'; // высота блока картинки в карточке
+
+      el.innerHTML = `
+        <div class="player-topbar">
+          <button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button>
+          <div style="font-size:14px;font-weight:600;color:var(--text-2);flex-shrink:0">${escHtml(ex.name)}</div>
+          <div class="player-progress-bar"><div class="player-progress-fill" style="width:${pct}%"></div></div>
+          <div class="player-counter">${done} / ${total}</div>
+        </div>
+        <div class="player-body" style="overflow-y:auto;padding:20px 24px">
+          <div style="width:100%;max-width:900px">
+
+            <div style="font-family:var(--font-title);font-size:17px;text-align:center;margin-bottom:16px;color:var(--text-1)">
+              ${done === total ? 'Всё верно!' : selectedRight !== null ? 'Выбери вопрос слева' : 'Перетащи ответ на нужный вопрос'}
             </div>
-            <div class="player-options cols-2">
-              ${options.map((opt, i) => `
-                <div class="player-opt" data-i="${i}" data-correct="${opt.correct}">
-                  ${opt.img ? `<img data-path="${escHtml(opt.img)}" style="width:110px;height:150px;object-fit:cover;border-radius:10px">` : ''}
-                  ${opt.text ? escHtml(opt.text) : ''}
-                </div>`).join('')}
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+
+              <!-- Левый: вопросы-слоты, вертикальные карточки -->
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Вопросы</div>
+                ${leftItems.map(item => {
+                  const matchedRIdx = matched[item.idx];
+                  const isMatched   = matchedRIdx !== undefined;
+                  const hadError    = firstAttemptFail.has(item.idx);
+                  const matchedR    = isMatched ? rightItems.find(r => r.idx === +matchedRIdx) : null;
+                  return `
+                    <div class="match-item vm-slot ${isMatched ? 'matched' : ''}" data-left="${item.idx}"
+                      style="display:flex;flex-direction:column;overflow:hidden;padding:0;
+                        ${!isMatched ? 'border:2px dashed var(--border-2);cursor:pointer' : ''}
+                        ${hadError && isMatched ? 'border-color:var(--amber)!important;background:var(--amber-l,#FFFBEB)!important' : ''}">
+                      ${item.question_img
+                        ? `<div style="width:100%;height:${IMG_H};background:var(--surface-2);overflow:hidden;flex-shrink:0">
+                            <img data-path="${escHtml(item.question_img)}" style="width:100%;height:100%;object-fit:contain">
+                          </div>`
+                        : ''}
+                      ${item.question
+                        ? `<div style="padding:10px 12px;font-size:15px;font-weight:600;color:var(--text-1)">
+                            ${escHtml(item.question)}</div>`
+                        : ''}
+                      ${isMatched
+                        ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+                              background:${hadError?'var(--amber-l,#FFFBEB)':'var(--green-l)'};
+                              border-top:1.5px solid ${hadError?'var(--amber)':'var(--green)'}">
+                            ${matchedR?.answer_img
+                              ? `<img data-path="${escHtml(matchedR.answer_img)}"
+                                  style="height:40px;max-width:64px;object-fit:contain;border-radius:6px;flex-shrink:0">`
+                              : ''}
+                            ${matchedR?.answer
+                              ? `<span style="font-size:13px;font-weight:700;color:${hadError?'var(--amber-600,#92400E)':'var(--green)'}">
+                                  ${escHtml(matchedR.answer)}</span>`
+                              : ''}
+                            <span style="margin-left:auto;color:${hadError?'var(--amber)':'var(--green)'};font-size:16px">${hadError?'~':'✓'}</span>
+                          </div>`
+                        : `<div style="padding:10px 12px;color:var(--text-3);font-size:12px;text-align:center;
+                              border-top:1px dashed var(--border-2)">перетащи ответ сюда ↓</div>`}
+                    </div>`;
+                }).join('')}
+              </div>
+
+              <!-- Правый: пул ответов, вертикальные карточки -->
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Ответы</div>
+                ${unmatchedRight.length === 0
+                  ? `<div style="color:var(--text-3);font-size:13px;padding:20px 0;text-align:center">Все ответы размещены ✓</div>`
+                  : unmatchedRight.map(item => `
+                    <div class="match-item vm-chip ${selectedRight === item.idx ? 'selected' : ''}"
+                      data-right="${item.idx}"
+                      style="display:flex;flex-direction:column;overflow:hidden;padding:0;
+                        cursor:grab;touch-action:none;user-select:none">
+                      ${item.answer_img
+                        ? `<div style="width:100%;height:${IMG_H};background:var(--surface-2);overflow:hidden;flex-shrink:0">
+                            <img data-path="${escHtml(item.answer_img)}" style="width:100%;height:100%;object-fit:contain">
+                          </div>`
+                        : ''}
+                      ${item.answer
+                        ? `<div style="padding:10px 12px;font-size:15px;font-weight:600;color:var(--text-1)">
+                            ${escHtml(item.answer)}</div>`
+                        : ''}
+                    </div>`).join('')}
+              </div>
             </div>
           </div>
         </div>`;
 
-      bindCloseBtn(player._el);
-      loadPlayerImages(player._el);
+      bindCloseBtn(el);
+      await loadPlayerImages(el);
+      if (done === total) return;
 
-      player._el.querySelectorAll('.player-opt').forEach(opt => {
-        opt.addEventListener('click', () => {
-          const isCorrect = opt.dataset.correct === 'true';
-          if (isCorrect) Sound.success(); else Sound.error();
-          opt.classList.add(isCorrect ? 'correct' : 'wrong');
-          if (!isCorrect) {
-            player._el.querySelectorAll('.player-opt').forEach(o => {
-              if (o.dataset.correct === 'true') o.classList.add('correct');
-            });
-          } else {
-            correct++;
-          }
-          answers.push({ question: item.question, is_correct: isCorrect });
-          player._el.querySelectorAll('.player-opt').forEach(o => o.classList.add('disabled'));
-          setTimeout(() => { idx++; render(); }, 900);
+      el.querySelectorAll('.vm-chip[data-right]').forEach(chip => {
+        const rightIdx = +chip.dataset.right;
+        DnD.makeDraggable(chip, { data: { rightIdx }, onDragStart: () => { selectedRight = null; } });
+        chip.addEventListener('click', () => {
+          selectedRight = selectedRight === rightIdx ? null : rightIdx;
+          render();
         });
       });
-    }
 
-    render();
+      el.querySelectorAll('.vm-slot[data-left]').forEach(slot => {
+        const leftIdx = +slot.dataset.left;
+        if (matched[leftIdx] !== undefined) return;
+        DnD.makeDropTarget(slot, { onDrop: ({ rightIdx }) => tryMatch(leftIdx, rightIdx) });
+        slot.addEventListener('click', () => { if (selectedRight !== null) tryMatch(leftIdx, selectedRight); });
+      });
+    };
+
+    await render();
   },
 
   // ── Find Pairs ──────────────────────────────────────────────────────────────
-  findPairs(ex, content, studentId, player) {
+  memory_game(ex, content, studentId, player) {
     const pairs = content.pairs || [];
     if (!pairs.length) {
       player._el.innerHTML = `
@@ -278,7 +428,7 @@ const PlayerTypes = {
       player._el.innerHTML = playerTopbar(ex.name, matched.size / 2, pairs.length) + `
         <div class="player-body">
           <div class="player-card">
-            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:24px">Найди все пары</div>
+            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:24px">Найди все пары (Мемо)</div>
             <div class="pairs-grid">
               ${cards.map(c => `
                 <div class="pair-card ${matched.has(c.id) ? 'matched' : ''}" data-id="${c.id}">
@@ -322,7 +472,14 @@ const PlayerTypes = {
               if (matched.size === cards.length) {
                 const dur = Math.round((Date.now() - startTime) / 1000);
                 player._saveResult(studentId, ex.id, correct, pairs.length, [], dur);
-                setTimeout(() => showResult(player._el, correct, pairs.length), 400);
+                setTimeout(() => {
+                  PlayerTypes._showResult(player._el, player, correct, pairs.length, dur, () => {
+                    // Сброс для повторного прохождения
+                    matched.clear(); flipped = []; locked = false; correct = 0;
+                    cards.sort(() => Math.random() - .5);
+                    render();
+                  });
+                }, 400);
               } else {
                 render();
               }
@@ -336,6 +493,160 @@ const PlayerTypes = {
     }
 
     render();
+  },
+
+  // ── Найди пару (find_pairs) — два столбца, линии как в visual_match ────────
+  async findPairs(ex, content, studentId, player) {
+    const pairs = content.pairs || [];
+    if (!pairs.length) {
+      player._el.innerHTML = `
+        <div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div>
+        <div class="player-body"><div class="player-card" style="text-align:center">
+          <div style="font-size:18px;color:var(--text-3)">Упражнение пусто.</div>
+        </div></div>`;
+      bindCloseBtn(player._el);
+      return;
+    }
+
+    const el        = player._el;
+    const startTime = Date.now();
+
+    // Левый столбец — в порядке добавления, правый — перемешан
+    const leftItems  = pairs.map((p, i) => ({ idx: i, text: p.a_text, img: p.a_img }));
+    const rightItems = pairs.map((p, i) => ({ idx: i, text: p.b_text, img: p.b_img }))
+                            .sort(() => Math.random() - .5);
+
+    // Гарантируем, что ни один правый не стоит напротив своего левого
+    let attempts = 0;
+    while (rightItems.some((r, i) => r.idx === i) && attempts < 20) {
+      rightItems.sort(() => Math.random() - .5);
+      attempts++;
+    }
+
+    let selectedLeft = null;   // idx выбранного левого объекта
+    const matched    = {};     // leftIdx → rightIdx
+    const errors     = {};     // rightIdx → true (мигание ошибки)
+    const firstAttemptFail = new Set(); // leftIdx с ошибкой до верного соединения
+
+    const render = async () => {
+      const total = pairs.length;
+      const done  = Object.keys(matched).length;
+      const pct   = Math.round(done / total * 100);
+
+      el.innerHTML = `
+        <div class="player-topbar">
+          <button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button>
+          <div style="font-size:14px;font-weight:600;color:var(--text-2);flex-shrink:0">${escHtml(ex.name)}</div>
+          <div class="player-progress-bar">
+            <div class="player-progress-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="player-counter">${done} / ${total}</div>
+        </div>
+        <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:32px 48px">
+          <div style="width:100%;max-width:900px">
+            <div style="font-family:var(--font-title);font-size:20px;text-align:center;
+              margin-bottom:24px;color:var(--text-1)">
+              ${selectedLeft !== null
+                ? 'Теперь выбери пару справа'
+                : done === total ? 'Все пары найдены!' : 'Выбери объект слева'}
+            </div>
+            <div style="position:relative" id="fp2-arena">
+              <div style="display:grid;grid-template-columns:1fr 48px 1fr;gap:0 16px">
+                <!-- Левый столбец -->
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  ${leftItems.map(item => {
+                    const isMatched  = matched[item.idx] !== undefined;
+                    const isSelected = selectedLeft === item.idx;
+                    return `
+                      <div class="match-item ${isMatched ? 'matched' : isSelected ? 'selected' : ''}"
+                        data-left="${item.idx}" style="min-height:80px">
+                        ${item.img
+                          ? `<img data-path="${escHtml(item.img)}" style="width:100%;max-height:130px;object-fit:contain;border-radius:10px">`
+                          : ''}
+                        ${item.text
+                          ? `<div class="mi-label">${escHtml(item.text)}</div>`
+                          : ''}
+                      </div>`;
+                  }).join('')}
+                </div>
+                <!-- Центр (SVG линии) -->
+                <div style="position:relative"></div>
+                <!-- Правый столбец -->
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  ${rightItems.map(item => {
+                    const isMatched = Object.entries(matched).some(([l, r]) => +r === item.idx);
+                    const isError   = errors[item.idx];
+                    return `
+                      <div class="match-item ${isMatched ? 'matched' : ''} ${isError ? 'wrong' : ''}"
+                        data-right="${item.idx}" style="min-height:80px">
+                        ${item.img
+                          ? `<img data-path="${escHtml(item.img)}" style="width:100%;max-height:130px;object-fit:contain;border-radius:10px">`
+                          : ''}
+                        ${item.text
+                          ? `<div class="mi-label">${escHtml(item.text)}</div>`
+                          : ''}
+                      </div>`;
+                  }).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      bindCloseBtn(el);
+      await loadPlayerImages(el);
+      _drawMatchLines(el, leftItems, rightItems, matched, '#fp2-arena');
+
+      if (done === total) {
+        const correctCount = total - firstAttemptFail.size;
+        const dur = Math.round((Date.now() - startTime) / 1000);
+        player._saveResult(studentId, ex.id, correctCount, total, matched, dur);
+        setTimeout(() => {
+          PlayerTypes._showResult(el, player, correctCount, total, dur, async () => {
+            Object.keys(matched).forEach(k => delete matched[k]);
+            firstAttemptFail.clear(); selectedLeft = null;
+            rightItems.sort(() => Math.random() - .5);
+            await render();
+          });
+        }, 700);
+        return;
+      }
+
+      // Клик по левому объекту
+      el.querySelectorAll('[data-left]').forEach(card => {
+        card.addEventListener('click', () => {
+          const idx = +card.dataset.left;
+          if (matched[idx] !== undefined) return;
+          selectedLeft = selectedLeft === idx ? null : idx;
+          render();
+        });
+      });
+
+      // Клик по правому объекту
+      el.querySelectorAll('[data-right]').forEach(card => {
+        card.addEventListener('click', async () => {
+          if (selectedLeft === null) { toast('Сначала выбери объект слева', ''); return; }
+          const rightIdx = +card.dataset.right;
+          if (Object.values(matched).map(Number).includes(rightIdx)) return;
+
+          const isCorrect = rightIdx === selectedLeft;
+          if (isCorrect) {
+            matched[selectedLeft] = rightIdx;
+            Sound.success();
+            selectedLeft = null;
+            render();
+          } else {
+            firstAttemptFail.add(selectedLeft); // ошибка снижает итоговый счёт
+            Sound.error();
+            errors[rightIdx] = true;
+            await render();
+            setTimeout(() => { delete errors[rightIdx]; render(); }, 700);
+          }
+        });
+      });
+    };
+
+    await render();
   },
 
   // ── Odd One Out ─────────────────────────────────────────────────────────────
@@ -375,7 +686,7 @@ const PlayerTypes = {
               ${items.map((it, i) => {
                 const isOdd = it.text === oddItem?.text && it.img === oddItem?.img;
                 return `<div class="player-opt" data-odd="${isOdd}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:90px;height:90px;object-fit:cover;border-radius:10px">` : ''}
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="object-fit:cover;border-radius:10px">` : ''}
                   ${it.text ? `<span>${escHtml(it.text)}</span>` : ''}
                 </div>`;
               }).join('')}
@@ -408,9 +719,12 @@ const PlayerTypes = {
   },
 
   // ── Sorting ─────────────────────────────────────────────────────────────────
-  sorting(ex, content, studentId, player) {
-    const cats  = content.categories || [];
+  async sorting(ex, content, studentId, player) {
+    // Нормализуем категории: строки → объекты {name, img}
+    const rawCats = content.categories || [];
+    const cats = rawCats.map(c => typeof c === 'string' ? { name: c, img: '' } : c);
     const items = content.items || [];
+
     if (!cats.length || !items.length) {
       player._el.innerHTML = `
         <div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div>
@@ -421,77 +735,159 @@ const PlayerTypes = {
       return;
     }
 
+    const el = player._el;
     const shuffledItems = [...items].sort(() => Math.random() - .5);
-    let remaining = [...shuffledItems];
-    let selected  = null;
-    let placed    = {};
-    let correct   = 0;
+    const placed  = {};   // catName → [item, ...]
+    cats.forEach(c => { placed[c.name] = []; });
+    const wrongOnce = new Set(); // item-ссылки, которые хоть раз положили неверно
     const startTime = Date.now();
-    cats.forEach(c => placed[c] = []);
 
-    async function render() {
-      player._el.innerHTML = playerTopbar(ex.name, shuffledItems.length - remaining.length, shuffledItems.length) + `
-        <div class="player-body" style="overflow-y:auto">
-          <div class="player-card" style="max-width:840px;width:100%">
-            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:20px">Разложи по группам</div>
-            <div class="sort-source">
-              ${remaining.map((it, i) => `
-                <div class="sort-chip" data-i="${i}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:4px">` : ''}
-                  ${escHtml(it.text || '')}
-                </div>`).join('')}
-              ${!remaining.length ? '<span style="color:var(--text-3);font-size:13px">Все распределены</span>' : ''}
+    const render = async () => {
+      const totalPlaced = Object.values(placed).reduce((s, a) => s + a.length, 0);
+      const isDone = totalPlaced === shuffledItems.length;
+
+      el.innerHTML = playerTopbar(ex.name, totalPlaced, shuffledItems.length) + `
+        <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:28px 48px">
+          <div style="width:100%;max-width:960px">
+            <div style="font-family:var(--font-title);font-size:20px;text-align:center;margin-bottom:24px">
+              Разложи по корзинам
             </div>
-            <div class="sort-buckets" style="grid-template-columns:repeat(${Math.min(cats.length, 3)}, 1fr)">
+
+            <!-- Пул элементов -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;min-height:70px;
+              padding:14px;background:var(--surface-2);border-radius:var(--r-xl);
+              border:2px dashed var(--border-2);margin-bottom:24px" id="sort-pool">
+              ${shuffledItems.filter(it => !Object.values(placed).flat().includes(it)).map((it, i) => `
+                <div class="sort-chip-v2" data-pool-i="${i}">
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-md)">` : ''}
+                  ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
+                </div>`).join('')
+              || '<div style="color:var(--text-3);font-size:13px;margin:auto">Все распределены ✓</div>'}
+            </div>
+
+            <!-- Корзины -->
+            <div style="display:grid;grid-template-columns:repeat(${Math.min(cats.length, 3)},1fr);gap:16px">
               ${cats.map(cat => `
-                <div class="sort-bucket" data-cat="${escHtml(cat)}">
-                  <div class="sort-bucket-title">${escHtml(cat)}</div>
-                  <div class="sort-bucket-items">
-                    ${(placed[cat] || []).map(it => `
-                      <div class="sort-placed ${it.category === cat ? '' : 'wrong'}">${escHtml(it.text || '?')}</div>
-                    `).join('')}
+                <div class="sort-bucket-v2" data-bucket="${escHtml(cat.name)}">
+                  <div class="sb-header">
+                    ${cat.img
+                      ? `<img data-path="${escHtml(cat.img)}" class="sb-img">`
+                      : ''}
+                    <div class="sb-title">${escHtml(cat.name)}</div>
+                  </div>
+                  <div class="sb-items">
+                    ${(placed[cat.name] || []).map(it => `
+                      <div class="sort-chip-v2 placed-chip" data-placed-cat="${escHtml(cat.name)}"
+                        style="cursor:pointer">
+                        ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:76px;height:76px;object-fit:cover;border-radius:var(--r-sm)">` : ''}
+                        ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
+                      </div>`).join('')}
                   </div>
                 </div>`).join('')}
             </div>
-            ${!remaining.length ? `
-              <div style="text-align:center;margin-top:20px">
-                <button class="btn btn-primary" id="sort-finish-btn">Проверить результат</button>
+
+            ${isDone ? `
+              <div style="text-align:center;margin-top:28px">
+                <button class="btn btn-primary btn-lg" id="sort-finish-btn"
+                  style="padding:16px 48px;font-size:17px">
+                  Проверить ✓
+                </button>
               </div>` : ''}
           </div>
         </div>`;
 
-      bindCloseBtn(player._el);
-      await loadPlayerImages(player._el);
+      bindCloseBtn(el);
+      await loadPlayerImages(el);
 
-      player._el.querySelectorAll('.sort-chip').forEach(chip => {
+      // ── Состояние выбора (тап-вариант без DnD) ───────────────────────────
+      let selected = null; // {item, srcCat} — выбранный элемент
+
+      const pool = el.querySelector('#sort-pool');
+      const poolItems = shuffledItems.filter(it => !Object.values(placed).flat().includes(it));
+
+      // Тап на элемент в пуле — выбираем
+      el.querySelectorAll('.sort-chip-v2[data-pool-i]').forEach((chip, ci) => {
+        const item = poolItems[ci];
         chip.addEventListener('click', () => {
-          player._el.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('selected-chip'));
-          chip.classList.add('selected-chip');
-          selected = remaining[+chip.dataset.i];
+          if (selected?.item === item) { selected = null; chip.classList.remove('selected'); render(); return; }
+          el.querySelectorAll('.sort-chip-v2').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          selected = { item, srcCat: null };
         });
       });
 
-      player._el.querySelectorAll('.sort-bucket').forEach(bucket => {
+      // Тап на размещённый элемент — возвращаем в пул
+      el.querySelectorAll('.placed-chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          const catName = chip.dataset.placedCat;
+          const items_  = placed[catName];
+          // Найдём элемент по содержимому (img/text)
+          const imgPath = chip.querySelector('img')?.dataset?.path || '';
+          const text    = chip.querySelector('.sc-label')?.textContent || '';
+          const idx     = items_.findIndex(it =>
+            (it.img === imgPath || (!it.img && !imgPath)) &&
+            (it.text === text || (!it.text && !text))
+          );
+          if (idx !== -1) {
+            const removed = items_.splice(idx, 1)[0];
+            // Откат счётчика правильных
+            if (removed.category === catName) correct = Math.max(0, correct - 1);
+            render();
+          }
+        });
+      });
+
+      // ── DnD ──────────────────────────────────────────────────────────────
+      el.querySelectorAll('.sort-chip-v2[data-pool-i]').forEach((chip, ci) => {
+        const item = poolItems[ci];
+        DnD.makeDraggable(chip, {
+          data: { item, srcCat: null },
+          onDragStart: () => { selected = null; },
+        });
+      });
+
+      el.querySelectorAll('.sort-bucket-v2').forEach(bucket => {
+        const catName = bucket.dataset.bucket;
+
+        // DnD drop
+        DnD.makeDropTarget(bucket, {
+          onDrop: (data) => {
+            const { item, srcCat } = data;
+            if (srcCat) placed[srcCat] = placed[srcCat].filter(it => it !== item);
+            placed[catName].push(item);
+            if (item.category !== catName) wrongOnce.add(item); // неверная корзина — фиксируем ошибку
+            DnD.cleanup(el);
+            render();
+          },
+        });
+
+        // Тап — размещаем выбранный
         bucket.addEventListener('click', () => {
           if (!selected) return;
-          const cat  = bucket.dataset.cat;
-          const item = selected;
-          placed[cat].push(item);
-          remaining  = remaining.filter(it => it !== item);
-          if (item.category === cat) correct++;
-          selected   = null;
+          const { item, srcCat } = selected;
+          if (srcCat) placed[srcCat] = placed[srcCat].filter(it => it !== item);
+          placed[catName].push(item);
+          if (item.category !== catName) wrongOnce.add(item);
+          selected = null;
           render();
         });
       });
 
-      player._el.querySelector('#sort-finish-btn')?.addEventListener('click', () => {
+      el.querySelector('#sort-finish-btn')?.addEventListener('click', () => {
+        const correct = shuffledItems.filter(it => !wrongOnce.has(it) && it.category === Object.keys(placed).find(k => placed[k].includes(it))).length;
         const dur = Math.round((Date.now() - startTime) / 1000);
-        player._saveResult(studentId, ex.id, correct, shuffledItems.length, [], dur);
-        showResult(player._el, correct, shuffledItems.length);
+        player._saveResult(studentId, ex.id, correct, shuffledItems.length, placed, dur);
+        PlayerTypes._showResult(el, player, correct, shuffledItems.length, dur, async () => {
+          cats.forEach(c => { placed[c.name] = []; });
+          wrongOnce.clear();
+          shuffledItems.sort(() => Math.random() - .5);
+          await render();
+        });
       });
-    }
+    };
 
-    render();
+    await render();
   },
 };
 
@@ -519,7 +915,6 @@ Object.assign(PlayerTypes, {
     const el = player._el;
     const startTime = Date.now();
     let order = [...Array(items.length).keys()];
-    // Перемешать
     for (let i = order.length-1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i+1));
       [order[i], order[j]] = [order[j], order[i]];
@@ -538,39 +933,39 @@ Object.assign(PlayerTypes, {
               ${escHtml(content.instruction || 'Расставь в правильном порядке')}
             </div>
 
-            <!-- Слоты ответа -->
-            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px;
-              min-height:96px;background:var(--surface-2);border-radius:var(--r-lg);padding:10px;
-              border:2px dashed var(--border-2)">
+            <!-- Слоты ответа (drop target) -->
+            <div id="seq-answer-zone" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+              margin-bottom:20px;min-height:96px;background:var(--surface-2);border-radius:var(--r-lg);
+              padding:10px;border:2px dashed var(--border-2)">
               ${selected.map((origIdx, pos) => {
                 const item = items[origIdx];
                 return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
-                  class="seq-placed" data-pos="${pos}">
-                  <div style="width:106px;height:106px;border-radius:var(--r-lg);overflow:hidden;background:var(--indigo-l);
+                  class="seq-placed" data-pos="${pos}" data-orig="${origIdx}">
+                  <div style="width:150px;height:150px;border-radius:var(--r-lg);overflow:hidden;background:var(--indigo-l);
                     display:flex;align-items:center;justify-content:center;border:2px solid var(--indigo);position:relative">
                     ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                      : `<span style="font-size:12px;font-weight:600;color:var(--indigo);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
+                      : `<span style="font-size:13px;font-weight:600;color:var(--indigo);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
                     <div style="position:absolute;top:2px;left:2px;background:var(--indigo);color:#fff;
-                      width:18px;height:18px;border-radius:50%;font-size:10px;font-weight:700;
+                      width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;
                       display:flex;align-items:center;justify-content:center">${pos+1}</div>
                   </div>
                   ${item.label ? `<div style="font-size:11px;color:var(--indigo);font-weight:500;max-width:80px;text-align:center">${escHtml(item.label)}</div>` : ''}
                 </div>`;
-              }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Нажимайте на элементы ниже</div>'}
+              }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Перетащи или нажимай на элементы ниже</div>'}
             </div>
 
-            <!-- Варианты -->
+            <!-- Варианты (pool) -->
             <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px">
               ${order.map((origIdx, pos) => {
                 const item = items[origIdx];
                 const isPlaced = selected.includes(origIdx);
                 return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;
-                  cursor:${isPlaced?'default':'pointer'};opacity:${isPlaced?.25:1};transition:opacity .2s"
-                  class="${isPlaced?'':'seq-opt'}" data-orig="${origIdx}">
-                  <div style="width:106px;height:106px;border-radius:var(--r-lg);overflow:hidden;background:var(--surface);
+                  cursor:${isPlaced?'default':'grab'};opacity:${isPlaced?.25:1};transition:opacity .2s"
+                  class="${isPlaced?'seq-placed-ghost':'seq-opt'}" data-orig="${origIdx}">
+                  <div style="width:150px;height:150px;border-radius:var(--r-lg);overflow:hidden;background:var(--surface);
                     border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
                     ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                      : `<span style="font-size:12px;font-weight:500;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
+                      : `<span style="font-size:13px;font-weight:500;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
                   </div>
                   ${item.label ? `<div style="font-size:11px;color:var(--text-3);max-width:80px;text-align:center">${escHtml(item.label)}</div>` : ''}
                 </div>`;
@@ -587,15 +982,17 @@ Object.assign(PlayerTypes, {
       await loadLazyImages(el);
       el.querySelector('#seq-close').addEventListener('click', () => player.close());
 
+      // Тап по элементу из пула — добавить в selected
       el.querySelectorAll('.seq-opt').forEach(opt => {
         opt.addEventListener('click', () => {
           selected.push(+opt.dataset.orig);
           render();
         });
       });
-      el.querySelectorAll('.seq-placed').forEach(placed => {
-        placed.addEventListener('click', () => {
-          selected.splice(+placed.dataset.pos, 1);
+      // Тап по размещённому — убрать
+      el.querySelectorAll('.seq-placed').forEach(p => {
+        p.addEventListener('click', () => {
+          selected.splice(+p.dataset.pos, 1);
           render();
         });
       });
@@ -605,9 +1002,43 @@ Object.assign(PlayerTypes, {
         if (allCorrect) Sound.win(); else Sound.error();
         const correct = allCorrect ? 1 : 0;
         const duration = Math.round((Date.now()-startTime)/1000);
-        player._saveResult(studentId, ex.id, correct?1:0, 1, selected, duration);
-        PlayerTypes._showResult(el, player, correct?1:0, 1, duration, async () => {
+        player._saveResult(studentId, ex.id, correct, 1, selected, duration);
+        PlayerTypes._showResult(el, player, correct, 1, duration, async () => {
           selected = []; render();
+        });
+      });
+
+      // ── DnD: тащить из пула в зону ответа ─────────────────────────────────
+      el.querySelectorAll('.seq-opt[data-orig]').forEach(chip => {
+        DnD.makeDraggable(chip, {
+          data: { origIdx: +chip.dataset.orig },
+        });
+      });
+
+      const answerZone = el.querySelector('#seq-answer-zone');
+      if (answerZone) {
+        DnD.makeDropTarget(answerZone, {
+          onDrop: ({ origIdx }) => {
+            if (!selected.includes(origIdx)) {
+              selected.push(origIdx);
+              DnD.cleanup(el);
+              render();
+            }
+          },
+        });
+      }
+
+      // DnD: тащить размещённый элемент — переставить (swap с другим местом)
+      el.querySelectorAll('.seq-placed[data-pos]').forEach(placed => {
+        const pos = +placed.dataset.pos;
+        DnD.makeDraggable(placed, { data: { placedPos: pos } });
+        DnD.makeDropTarget(placed, {
+          onDrop: ({ placedPos: fromPos }) => {
+            if (fromPos === undefined || fromPos === pos) return;
+            [selected[fromPos], selected[pos]] = [selected[pos], selected[fromPos]];
+            DnD.cleanup(el);
+            render();
+          },
         });
       });
     };
@@ -742,7 +1173,7 @@ Object.assign(PlayerTypes, {
               <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:8px">
                 ${items.map(item => `
                   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-                    <div style="width:110px;height:150px;border-radius:var(--r-lg);overflow:hidden;
+                    <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                       background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
                       ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
                         : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
@@ -780,7 +1211,7 @@ Object.assign(PlayerTypes, {
               <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-bottom:24px">
                 ${visible.map(item => `
                   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-                    <div style="width:110px;height:150px;border-radius:var(--r-lg);overflow:hidden;
+                    <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                       background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
                       ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
                         : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
@@ -788,7 +1219,7 @@ Object.assign(PlayerTypes, {
                     ${item.label ? `<div style="font-size:11px;color:var(--text-3);max-width:84px;text-align:center">${escHtml(item.label)}</div>` : ''}
                   </div>`).join('')}
                 <!-- Пустое место -->
-                <div style="width:110px;height:150px;border-radius:var(--r-lg);border:3px dashed var(--indigo);
+                <div style="width:140px;height:180px;border-radius:var(--r-lg);border:3px dashed var(--indigo);
                   display:flex;align-items:center;justify-content:center;font-size:28px">❓</div>
               </div>
               <div style="font-size:13px;color:var(--text-3);text-align:center;margin-bottom:14px">Выбери исчезнувший предмет:</div>
@@ -941,7 +1372,8 @@ Object.assign(PlayerTypes, {
     }
 
     // Состояние: какой элемент в какой корзине
-    const placed = {}; // itemId -> catIdx
+    const placed   = {}; // itemId -> catIdx
+    const wrongOnce = new Set(); // itemId, которые хоть раз положили не в ту группу
     let selected = null; // выбранный для перетаскивания
 
     const render = async () => {
@@ -967,10 +1399,10 @@ Object.assign(PlayerTypes, {
                     style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
                       padding:8px;border-radius:var(--r-lg);border:2px solid ${selected===item.id?'var(--indigo)':'var(--border)'};
                       background:${selected===item.id?'var(--indigo-l)':'var(--surface)'};transition:all .15s;min-width:70px">
-                    <div style="width:60px;height:60px;border-radius:var(--r-md);overflow:hidden;
+                    <div style="width:100px;height:100px;border-radius:var(--r-md);overflow:hidden;
                       background:var(--surface-2);display:flex;align-items:center;justify-content:center">
                       ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                        : `<span style="font-size:12px;font-weight:600;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
+                        : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
                     </div>
                     ${item.label && item.img ? `<div style="font-size:11px;color:var(--text-3);text-align:center;max-width:70px">${escHtml(item.label)}</div>` : ''}
                   </div>`).join('')}
@@ -991,9 +1423,9 @@ Object.assign(PlayerTypes, {
                         <div class="cat-bucket-item" data-id="${item.id}" data-ci="${ci}"
                           style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
                             padding:6px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface-2)">
-                          <div style="width:48px;height:48px;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center">
+                          <div style="width:100px;height:100px;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center">
                             ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                              : `<span style="font-size:11px;text-align:center;padding:2px">${escHtml(item.label)}</span>`}
+                              : `<span style="font-size:12px;text-align:center;padding:2px">${escHtml(item.label)}</span>`}
                           </div>
                         </div>`).join('')}
                     </div>
@@ -1006,35 +1438,57 @@ Object.assign(PlayerTypes, {
       await loadLazyImages(el);
       el.querySelector('#cat-close').addEventListener('click', () => player.close());
 
-      // Клик на элемент в пуле — выбрать/снять
-      el.querySelectorAll('.cat-pool-item').forEach(item => {
-        item.addEventListener('click', () => {
-          selected = selected === +item.dataset.id ? null : +item.dataset.id;
+      // Тап на элемент в пуле — выбрать/снять
+      el.querySelectorAll('.cat-pool-item').forEach(chip => {
+        chip.addEventListener('click', () => {
+          selected = selected === +chip.dataset.id ? null : +chip.dataset.id;
           render();
+        });
+        DnD.makeDraggable(chip, {
+          data: { itemId: +chip.dataset.id, srcCi: null },
+          onDragStart: () => { selected = null; },
         });
       });
 
-      // Клик на корзину — переместить выбранный
+      // Тап на корзину — положить выбранный
       el.querySelectorAll('.cat-bucket').forEach(bucket => {
+        const ci = +bucket.dataset.ci;
         bucket.addEventListener('click', () => {
           if (selected !== null) {
-            placed[selected] = +bucket.dataset.ci;
+            const item = allItems.find(it => it.id === selected);
+            if (item && item.correctCat !== ci) wrongOnce.add(selected);
+            placed[selected] = ci;
             selected = null;
             render();
           }
         });
+        DnD.makeDropTarget(bucket, {
+          onDrop: ({ itemId, srcCi }) => {
+            const item = allItems.find(it => it.id === itemId);
+            if (item && item.correctCat !== ci) wrongOnce.add(itemId);
+            if (srcCi !== null && srcCi !== undefined) delete placed[itemId];
+            placed[itemId] = ci;
+            DnD.cleanup(el);
+            render();
+          },
+        });
       });
 
-      // Клик на элемент в корзине — вернуть в пул
-      el.querySelectorAll('.cat-bucket-item').forEach(item => {
-        item.addEventListener('click', e => {
+      // Тап на размещённый — вернуть в пул
+      el.querySelectorAll('.cat-bucket-item').forEach(chip => {
+        chip.addEventListener('click', e => {
           e.stopPropagation();
-          delete placed[+item.dataset.id];
+          delete placed[+chip.dataset.id];
           render();
+        });
+        DnD.makeDraggable(chip, {
+          data: { itemId: +chip.dataset.id, srcCi: +chip.dataset.ci },
+          onDragStart: () => { selected = null; },
         });
       });
 
       el.querySelector('#cat-check')?.addEventListener('click', () => {
+        const correctCount = allItems.filter(item => !wrongOnce.has(item.id) && placed[item.id] === item.correctCat).length;
         const duration = Math.round((Date.now()-startTime)/1000);
         player._saveResult(studentId, ex.id, correctCount, allItems.length, placed, duration);
         if (correctCount === allItems.length) Sound.win(); else Sound.next();
@@ -1136,11 +1590,13 @@ Object.assign(PlayerTypes, {
         const j = Math.floor(Math.random()*(i+1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      // Буквы с уникальным id
-      const pool = shuffled.map((l, i) => ({ letter: l, id: i, used: false }));
-      let answer = []; // [{letter, id}]
+      // Pool: каждая буква с уникальным id
+      const pool = shuffled.map((l, i) => ({ letter: l, id: i }));
+      // Slots: массив длиной = слово, null = пусто, иначе {letter, id}
+      let slots = Array(letters.length).fill(null);
 
       const renderInner = async () => {
+        const allFilled = slots.every(s => s !== null);
         el.innerHTML = `
           <div class="player-topbar">
             <button class="btn btn-ghost btn-sm" id="wb-close">Закрыть</button>
@@ -1153,39 +1609,48 @@ Object.assign(PlayerTypes, {
             <div class="player-card" style="max-width:840px;text-align:center">
               ${word.img ? `<div style="margin-bottom:16px">
                 <img src="" data-path="${escHtml(word.img)}" class="lazy-img"
-                  style="max-height:160px;max-width:100%;object-fit:contain;border-radius:var(--r-lg)"></div>` : ''}
+                  style="max-height:240px;max-width:100%;object-fit:contain;border-radius:var(--r-lg)"></div>` : ''}
 
-              <!-- Слоты ответа -->
+              <!-- Позиционные слоты ответа -->
               <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
-                min-height:64px;margin-bottom:24px;align-items:center">
-                ${answer.length === 0 ? '<div style="color:var(--text-3);font-size:13px">Нажимай на буквы ниже</div>'
-                  : answer.map(a => `
-                    <div class="wb-ans-letter" data-id="${a.id}"
+                min-height:76px;margin-bottom:24px;align-items:center">
+                ${slots.map((s, pos) => s
+                  ? `<div class="wb-slot wb-slot-filled" data-pos="${pos}"
                       style="width:68px;height:68px;border-radius:var(--r-lg);
                         background:var(--indigo);color:#fff;font-size:26px;font-weight:700;
-                        display:flex;align-items:center;justify-content:center;cursor:pointer;
-                        border:2px solid var(--indigo);transition:transform .1s">${a.letter}</div>`).join('')}
+                        display:flex;align-items:center;justify-content:center;
+                        cursor:pointer;touch-action:none;user-select:none;
+                        border:2px solid var(--indigo);transition:transform .1s">${s.letter}</div>`
+                  : `<div class="wb-slot wb-slot-empty" data-pos="${pos}"
+                      style="width:68px;height:68px;border-radius:var(--r-lg);
+                        background:var(--surface-2);border:2px dashed var(--border-2);
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:13px;font-weight:700;color:var(--text-3)">
+                        ${pos+1}
+                      </div>`
+                ).join('')}
               </div>
 
               <!-- Пул букв -->
               <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
                 ${pool.map(p => {
-                  const isUsed = answer.some(a => a.id === p.id);
-                  return `<div class="wb-pool-letter ${isUsed?'':'wb-pick'}" data-id="${p.id}"
+                  const isUsed = slots.some(s => s?.id === p.id);
+                  return `<div class="wb-pool-letter ${isUsed ? '' : 'wb-pick'}" data-id="${p.id}"
                     style="width:68px;height:68px;border-radius:var(--r-lg);
                       background:${isUsed?'var(--surface-2)':'var(--surface)'};
                       color:${isUsed?'var(--text-3)':'var(--text-1)'};
                       border:2px solid ${isUsed?'var(--border)':'var(--border-2)'};
                       font-size:26px;font-weight:700;
                       display:flex;align-items:center;justify-content:center;
-                      cursor:${isUsed?'default':'pointer'};
-                      opacity:${isUsed?.4:1};transition:all .15s">${p.letter}</div>`;
+                      cursor:${isUsed?'default':'grab'};
+                      opacity:${isUsed?.35:1};transition:all .15s;
+                      touch-action:none;user-select:none">${p.letter}</div>`;
                 }).join('')}
               </div>
 
               <div style="display:flex;gap:10px;justify-content:center">
-                ${answer.length > 0 ? `<button class="btn btn-ghost" id="wb-clear">Очистить</button>` : ''}
-                ${answer.length === letters.length ? `<button class="btn btn-primary" id="wb-check">Проверить →</button>` : ''}
+                ${slots.some(s => s !== null) ? `<button class="btn btn-ghost" id="wb-clear">Очистить</button>` : ''}
+                ${allFilled ? `<button class="btn btn-primary" id="wb-check">Проверить →</button>` : ''}
               </div>
             </div>
           </div>`;
@@ -1193,30 +1658,69 @@ Object.assign(PlayerTypes, {
         await loadLazyImages(el);
         el.querySelector('#wb-close').addEventListener('click', () => player.close());
 
+        // ── Тап: пул → первый пустой слот ─────────────────────────────────
         el.querySelectorAll('.wb-pick').forEach(btn => {
           btn.addEventListener('click', () => {
             const p = pool.find(p => p.id === +btn.dataset.id);
-            if (p && !answer.some(a => a.id === p.id)) {
-              answer.push({ letter: p.letter, id: p.id });
-              renderInner();
-            }
+            if (!p || slots.some(s => s?.id === p.id)) return;
+            const emptyPos = slots.findIndex(s => s === null);
+            if (emptyPos !== -1) { slots[emptyPos] = { letter: p.letter, id: p.id }; renderInner(); }
           });
         });
-        el.querySelectorAll('.wb-ans-letter').forEach(btn => {
-          btn.addEventListener('click', () => {
-            answer = answer.filter(a => a.id !== +btn.dataset.id);
+
+        // ── Тап: заполненный слот → убрать букву обратно ──────────────────
+        el.querySelectorAll('.wb-slot-filled').forEach(slot => {
+          slot.addEventListener('click', () => {
+            slots[+slot.dataset.pos] = null;
             renderInner();
           });
         });
-        el.querySelector('#wb-clear')?.addEventListener('click', () => { answer = []; renderInner(); });
+
+        // ── DnD: буква из пула → конкретный слот ──────────────────────────
+        el.querySelectorAll('.wb-pick').forEach(chip => {
+          DnD.makeDraggable(chip, { data: { poolId: +chip.dataset.id } });
+        });
+
+        // ── DnD: заполненный слот → другой слот (swap/move) ───────────────
+        el.querySelectorAll('.wb-slot-filled').forEach(slot => {
+          DnD.makeDraggable(slot, { data: { fromPos: +slot.dataset.pos } });
+        });
+
+        // ── Drop targets: все слоты принимают буквы ────────────────────────
+        el.querySelectorAll('.wb-slot').forEach(slot => {
+          const toPos = +slot.dataset.pos;
+          DnD.makeDropTarget(slot, {
+            onDrop: (data) => {
+              if (data.poolId !== undefined) {
+                // Из пула
+                const p = pool.find(p => p.id === data.poolId);
+                if (!p || slots.some(s => s?.id === p.id)) return;
+                if (slots[toPos] !== null) {
+                  // Слот занят — буква уже на месте, просто не меняем
+                  return;
+                }
+                slots[toPos] = { letter: p.letter, id: p.id };
+              } else if (data.fromPos !== undefined) {
+                // Из другого слота — swap
+                const fromPos = data.fromPos;
+                if (fromPos === toPos) return;
+                [slots[fromPos], slots[toPos]] = [slots[toPos], slots[fromPos]];
+              }
+              DnD.cleanup(el);
+              renderInner();
+            },
+          });
+        });
+
+        el.querySelector('#wb-clear')?.addEventListener('click', () => { slots = Array(letters.length).fill(null); renderInner(); });
         el.querySelector('#wb-check')?.addEventListener('click', () => {
-          const assembled = answer.map(a => a.letter).join('');
+          const assembled = slots.map(s => s?.letter || '').join('');
           const isRight   = assembled === word.text.toUpperCase();
           if (isRight) correct++;
 
-          // Подсветка
-          el.querySelectorAll('.wb-ans-letter').forEach(btn => {
-            btn.style.background = isRight ? 'var(--green)' : 'var(--rose)';
+          el.querySelectorAll('.wb-slot-filled').forEach(s => {
+            s.style.background = isRight ? 'var(--green)' : 'var(--rose)';
+            s.style.borderColor = isRight ? 'var(--green)' : 'var(--rose)';
           });
 
           if (!isRight) {
@@ -1251,15 +1755,14 @@ Object.assign(PlayerTypes, {
     const el = player._el;
     const startTime = Date.now();
 
-    // Перемешать
     const shuffled = [...items.map((item, i) => ({ ...item, correctIdx: i }))];
     for (let i = shuffled.length-1; i > 0; i--) {
       const j = Math.floor(Math.random()*(i+1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 
-    let order = [...Array(shuffled.length).keys()]; // текущий порядок (индексы в shuffled)
-    let selected = null; // выбранный индекс для свопа
+    let order    = [...Array(shuffled.length).keys()];
+    let selected = null; // тап-режим: выбранная позиция
 
     const render = async () => {
       el.innerHTML = `
@@ -1274,14 +1777,15 @@ Object.assign(PlayerTypes, {
             </div>
             <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end">
               ${order.map((si, pos) => {
-                const item = shuffled[si];
+                const item  = shuffled[si];
                 const isSel = selected === pos;
                 return `<div class="so-item ${isSel?'selected':''}" data-pos="${pos}"
-                  style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;
+                  style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:grab;
                     padding:10px;border-radius:var(--r-xl);border:2px solid ${isSel?'var(--indigo)':'var(--border)'};
-                    background:${isSel?'var(--indigo-l)':'var(--surface)'};transition:all .2s;min-width:80px">
+                    background:${isSel?'var(--indigo-l)':'var(--surface)'};transition:all .2s;min-width:80px;
+                    user-select:none;touch-action:none">
                   <div style="font-size:12px;font-weight:700;color:${isSel?'var(--indigo)':'var(--text-3)'}">${pos+1}</div>
-                  <div style="width:110px;height:150px;border-radius:var(--r-lg);overflow:hidden;
+                  <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                     border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
                     ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
                       : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
@@ -1291,7 +1795,7 @@ Object.assign(PlayerTypes, {
               }).join('')}
             </div>
             <div style="text-align:center;font-size:12.5px;color:var(--text-3);margin-bottom:12px">
-              Нажми на два элемента, чтобы поменять их местами
+              Перетащи или нажми два элемента, чтобы поменять местами
             </div>
             <div style="text-align:center">
               <button class="btn btn-primary" id="so-check">Проверить →</button>
@@ -1302,36 +1806,46 @@ Object.assign(PlayerTypes, {
       await loadLazyImages(el);
       el.querySelector('#so-close').addEventListener('click', () => player.close());
 
-      el.querySelectorAll('.so-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const pos = +item.dataset.pos;
-          if (selected === null) {
-            selected = pos;
-            render();
-          } else if (selected === pos) {
-            selected = null;
-            render();
-          } else {
+      // Тап: выбрать первый, потом второй → swap
+      el.querySelectorAll('.so-item').forEach(card => {
+        card.addEventListener('click', () => {
+          const pos = +card.dataset.pos;
+          if (selected === null) { selected = pos; render(); }
+          else if (selected === pos) { selected = null; render(); }
+          else {
             [order[selected], order[pos]] = [order[pos], order[selected]];
-            selected = null;
-            render();
+            selected = null; render();
           }
         });
       });
 
+      // DnD: тащить одну карточку на другую → swap
+      el.querySelectorAll('.so-item[data-pos]').forEach(card => {
+        const fromPos = +card.dataset.pos;
+        DnD.makeDraggable(card, {
+          data: { fromPos },
+          onDragStart: () => { selected = null; },
+        });
+        DnD.makeDropTarget(card, {
+          onDrop: ({ fromPos: fp }) => {
+            if (fp === undefined || fp === fromPos) return;
+            [order[fp], order[fromPos]] = [order[fromPos], order[fp]];
+            DnD.cleanup(el);
+            render();
+          },
+        });
+      });
+
       el.querySelector('#so-check').addEventListener('click', () => {
-        // Правильный порядок: correctIdx 0, 1, 2...
         const isCorrect = order.every((si, pos) => shuffled[si].correctIdx === pos);
         const duration  = Math.round((Date.now()-startTime)/1000);
         player._saveResult(studentId, ex.id, isCorrect?1:0, 1, order, duration);
         if (isCorrect) Sound.win(); else Sound.error();
         PlayerTypes._showResult(el, player, isCorrect?1:0, 1, duration, async () => {
-          // Перемешать снова
           for (let i = shuffled.length-1; i > 0; i--) {
             const j = Math.floor(Math.random()*(i+1));
             [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
           }
-          shuffled.forEach((item, i) => { item.correctIdx = items.indexOf(content.items.find(it => it.label === item.label && it.img === item.img)); });
           order = [...Array(shuffled.length).keys()];
           render();
         });
@@ -1353,11 +1867,12 @@ Object.assign(PlayerTypes, {
     const seqs = content.sequences || [];
     if (!seqs.length) { player.close(); toast('Нет рядов', 'error'); return; }
 
-    const el = player._el;
+    const isImg     = content.mode === 'image';
+    const el        = player._el;
     const startTime = Date.now();
     let idx = 0, correct = 0;
 
-    const next = () => {
+    const next = async () => {
       if (idx >= seqs.length) {
         const dur = Math.round((Date.now()-startTime)/1000);
         player._saveResult(studentId, ex.id, correct, seqs.length, [], dur);
@@ -1365,51 +1880,146 @@ Object.assign(PlayerTypes, {
         return;
       }
       const seq = seqs[idx];
-      const shuffled = [...(seq.options||[]).map((v,i)=>({val:v,i}))].sort(()=>Math.random()-.5);
 
-      el.innerHTML = `
-        <div class="player-topbar">
-          <button class="btn btn-ghost btn-sm" id="pat-close">Закрыть</button>
-          <div style="font-size:14px;font-weight:600">${escHtml(ex.name)}</div>
-          <div style="margin-left:auto;font-size:13px;color:var(--text-3)">${idx+1}/${seqs.length}</div>
-        </div>
-        <div class="player-body">
-          <div class="player-card" style="max-width:720px">
-            <div class="player-question">Что идёт дальше?</div>
-            <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:20px 0 28px">
-              ${(seq.items||[]).map(it => `
-                <div style="width:60px;height:60px;border-radius:var(--r-md);background:var(--surface);
-                  border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px">
-                  ${escHtml(String(it))}
-                </div>`).join('')}
-            </div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center" id="pat-opts"></div>
+      if (!isImg) {
+        // ── Текстовый режим ───────────────────────────────────────────────────
+        const shuffled = [...(seq.options||[]).map((v,i)=>({val:v,i}))].sort(()=>Math.random()-.5);
+
+        el.innerHTML = `
+          <div class="player-topbar">
+            <button class="btn btn-ghost btn-sm" id="pat-close">Закрыть</button>
+            <div style="font-size:14px;font-weight:600">${escHtml(ex.name)}</div>
+            <div style="margin-left:auto;font-size:13px;color:var(--text-3)">${idx+1}/${seqs.length}</div>
           </div>
-        </div>`;
+          <div class="player-body">
+            <div class="player-card" style="max-width:720px">
+              <div class="player-question">Что идёт дальше?</div>
+              <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:20px 0 28px">
+                ${(seq.items||[]).map(it => `
+                  <div style="width:60px;height:60px;border-radius:var(--r-md);background:var(--surface);
+                    border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:24px">
+                    ${escHtml(String(it))}
+                  </div>`).join('')}
+              </div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center" id="pat-opts"></div>
+            </div>
+          </div>`;
 
-      bindCloseBtn(el);
-      const optsWrap = el.querySelector('#pat-opts');
-      shuffled.forEach(opt => {
-        const btn = document.createElement('button');
-        btn.className = 'player-opt';
-        btn.style.cssText = 'width:72px;height:72px;font-size:26px;font-weight:800;padding:0;display:flex;align-items:center;justify-content:center';
-        btn.textContent = String(opt.val);
-        btn.addEventListener('click', () => {
-          const ok = opt.i === seq.answer;
-          if (ok) { Sound.success(); correct++; } else Sound.error();
-          el.querySelectorAll('.player-opt').forEach(b => b.disabled = true);
-          btn.style.background = ok ? 'var(--green-l)' : 'var(--rose-l)';
-          btn.style.borderColor = ok ? 'var(--green)' : 'var(--rose)';
-          if (!ok) {
-            const correctBtn = [...el.querySelectorAll('.player-opt')].find((b,bi) => shuffled[bi]?.i === seq.answer);
-            if (correctBtn) { correctBtn.style.background='var(--green-l)'; correctBtn.style.borderColor='var(--green)'; }
-          }
-          setTimeout(() => { idx++; next(); }, 1100);
+        bindCloseBtn(el);
+        const optsWrap = el.querySelector('#pat-opts');
+        shuffled.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'player-opt';
+          btn.style.cssText = 'width:72px;height:72px;font-size:26px;font-weight:800;padding:0;display:flex;align-items:center;justify-content:center';
+          btn.textContent = String(opt.val);
+          btn.addEventListener('click', () => {
+            const ok = opt.i === seq.answer;
+            if (ok) { Sound.success(); correct++; } else Sound.error();
+            el.querySelectorAll('.player-opt').forEach(b => b.disabled = true);
+            btn.style.background = ok ? 'var(--green-l)' : 'var(--rose-l)';
+            btn.style.borderColor = ok ? 'var(--green)' : 'var(--rose)';
+            if (!ok) {
+              const correctBtn = [...el.querySelectorAll('.player-opt')].find((b,bi) => shuffled[bi]?.i === seq.answer);
+              if (correctBtn) { correctBtn.style.background='var(--green-l)'; correctBtn.style.borderColor='var(--green)'; }
+            }
+            setTimeout(() => { idx++; next(); }, 1100);
+          });
+          optsWrap.appendChild(btn);
         });
-        optsWrap.appendChild(btn);
-      });
+
+      } else {
+        // ── Режим картинок ────────────────────────────────────────────────────
+        const items    = seq.items   || [];
+        const gapIdx   = seq.gap_index ?? items.length - 1;
+        const options  = seq.options  || [];
+        const shuffled = [...options.map((op, i) => ({ op, i }))].sort(() => Math.random() - .5);
+
+        // Сначала рендерим скелет — потом грузим картинки
+        el.innerHTML = `
+          <div class="player-topbar">
+            <button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button>
+            <div style="font-size:14px;font-weight:600">${escHtml(ex.name)}</div>
+            <div style="margin-left:auto;font-size:13px;color:var(--text-3)">${idx+1}/${seqs.length}</div>
+          </div>
+          <div class="player-body">
+            <div class="player-card" style="max-width:760px">
+              <div class="player-question">Что стоит на месте знака вопроса?</div>
+
+              <!-- Ряд с пропуском -->
+              <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin:20px 0 28px" id="pat-row"></div>
+
+              <!-- Варианты -->
+              <div style="font-size:13px;color:var(--text-3);text-align:center;margin-bottom:12px">Выбери правильный вариант:</div>
+              <div style="display:flex;gap:14px;flex-wrap:wrap;justify-content:center" id="pat-opts-img"></div>
+            </div>
+          </div>`;
+
+        bindCloseBtn(el);
+
+        // Рендер ряда
+        const rowWrap = el.querySelector('#pat-row');
+        for (let ii = 0; ii < items.length; ii++) {
+          const cell = document.createElement('div');
+          cell.style.cssText = 'width:110px;height:110px;border-radius:var(--r-md);background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;flex-shrink:0';
+          if (ii === gapIdx) {
+            cell.style.background = 'var(--surface-2)';
+            cell.style.borderStyle = 'dashed';
+            cell.innerHTML = '<span style="font-size:32px;color:var(--text-3)">?</span>';
+          } else {
+            const it = items[ii];
+            if (it && it.img) {
+              const d = await window.db.files.getImageData(it.img);
+              if (d) cell.innerHTML = `<img src="${d}" style="width:100%;height:100%;object-fit:contain">`;
+            }
+            if (it && it.label) {
+              const lbl = document.createElement('div');
+              lbl.style.cssText = 'font-size:11px;color:var(--text-2);text-align:center;padding:2px 4px';
+              lbl.textContent = it.label;
+              cell.appendChild(lbl);
+            }
+          }
+          rowWrap.appendChild(cell);
+        }
+
+        // Рендер вариантов
+        const optsWrap = el.querySelector('#pat-opts-img');
+        for (const { op, i } of shuffled) {
+          const btn = document.createElement('button');
+          btn.className = 'player-opt';
+          btn.style.cssText = 'width:120px;height:120px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative';
+          if (op.img) {
+            const d = await window.db.files.getImageData(op.img);
+            if (d) {
+              const img = document.createElement('img');
+              img.src = d;
+              img.style.cssText = 'width:100%;height:70px;object-fit:contain;border-radius:var(--r-sm)';
+              btn.appendChild(img);
+            }
+          }
+          if (op.label) {
+            const lbl = document.createElement('div');
+            lbl.style.cssText = 'font-size:11px;color:var(--text-2);text-align:center';
+            lbl.textContent = op.label;
+            btn.appendChild(lbl);
+          }
+          btn.addEventListener('click', () => {
+            const ok = i === seq.answer;
+            if (ok) { Sound.success(); correct++; } else Sound.error();
+            el.querySelectorAll('#pat-opts-img .player-opt').forEach(b => b.disabled = true);
+            btn.style.background    = ok ? 'var(--green-l)' : 'var(--rose-l)';
+            btn.style.borderColor   = ok ? 'var(--green)'   : 'var(--rose)';
+            if (!ok) {
+              const correctBtn = [...el.querySelectorAll('#pat-opts-img .player-opt')]
+                .find((b, bi) => shuffled[bi]?.i === seq.answer);
+              if (correctBtn) { correctBtn.style.background = 'var(--green-l)'; correctBtn.style.borderColor = 'var(--green)'; }
+            }
+            setTimeout(() => { idx++; next(); }, 1100);
+          });
+          optsWrap.appendChild(btn);
+        }
+      }
     };
-    next();
+    await next();
   },
 
   // ── История по порядку (story_order) ─────────────────────────────────────
@@ -1500,7 +2110,7 @@ Object.assign(PlayerTypes, {
         return;
       }
       const s = sentences[idx];
-      const opts = [...[s.correct, ...(s.options||[]).filter(Boolean)]].sort(()=>Math.random()-.5);
+      const opts = [...[s.correct, ...(s.options||[]).filter(Boolean)]].filter(Boolean).sort(()=>Math.random()-.5);
       const parts = (s.text||'').split('___');
 
       el.innerHTML = `
@@ -1582,7 +2192,7 @@ Object.assign(PlayerTypes, {
       const imgPath = item.image || item.img || '';
       if (imgPath) {
         const d = await window.db.files.getImageData(imgPath);
-        if (d) el.querySelector('#fs-img').innerHTML = `<img src="${d}" style="height:160px;object-fit:contain;border-radius:var(--r-md)">`;
+        if (d) el.querySelector('#fs-img').innerHTML = `<img src="${d}" style="height:240px;object-fit:contain;border-radius:var(--r-md)">`;
       }
 
       const optsWrap = el.querySelector('#fs-opts');
@@ -1708,7 +2318,7 @@ Object.assign(PlayerTypes, {
       const imgPath = task.image || task.img || '';
       if (imgPath) {
         const d = await window.db.files.getImageData(imgPath);
-        if (d) el.querySelector('#em-img').innerHTML = `<img src="${d}" style="height:170px;object-fit:contain;border-radius:var(--r-lg)">`;
+        if (d) el.querySelector('#em-img').innerHTML = `<img src="${d}" style="height:240px;object-fit:contain;border-radius:var(--r-lg)">`;
       }
 
       const optsWrap = el.querySelector('#em-opts');

@@ -107,6 +107,11 @@ async function initDatabase() {
       ('Речь',     '#EF4444', 4)`);
   }
 
+  // ── Миграция: find_pairs → memory_game ──────────────────────────────────────
+  try {
+    db.run("UPDATE exercises SET type = 'memory_game' WHERE type = 'find_pairs'");
+  } catch(e) { console.warn('migration find_pairs→memory_game:', e.message); }
+
   saveDb();
 }
 
@@ -353,21 +358,6 @@ ipcMain.handle('files:getImageData', (_, filePath) => {
   const ext  = path.extname(filePath).slice(1).toLowerCase();
   const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
   return `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
-});
-
-// Сохранить base64-картинку в userData/images/, вернуть путь (используется при импорте)
-ipcMain.handle('files:saveImageData', (_, dataUrl) => {
-  try {
-    const match = dataUrl.match(/^data:image\/(\w+);base64,(.+)$/);
-    if (!match) return null;
-    const ext  = match[1] === 'jpeg' ? 'jpg' : match[1];
-    const data = Buffer.from(match[2], 'base64');
-    const dir  = path.join(app.getPath('userData'), 'images');
-    fs.mkdirSync(dir, { recursive: true });
-    const dest = path.join(dir, `${Date.now()}_imported.${ext}`);
-    fs.writeFileSync(dest, data);
-    return dest;
-  } catch(e) { return null; }
 });
 
 ipcMain.handle('files:pickJson', async () => {

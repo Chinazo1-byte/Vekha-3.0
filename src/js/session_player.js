@@ -331,70 +331,161 @@ function spTopbar(sessionName, current, total, exName) {
 // ══════════════════════════════════════════════════════════════════════════════
 const SpTypes = {
 
-  // ── Visual Match ────────────────────────────────────────────────────────────
-  visualMatch(ex, content, container, onDone) {
+  // ── Visual Match — слоты + DnD ────────────────────────────────────────────
+  async visualMatch(ex, content, container, onDone) {
     const items = content.items || [];
-    if (!items.length) {
+    if (items.length < 2) {
       container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center">
-        <div style="color:var(--text-3);font-size:16px;margin-bottom:20px">Упражнение пусто — добавьте задания в редакторе.</div>
+        <div style="color:var(--text-3);font-size:16px;margin-bottom:20px">Нужно минимум 2 пары.</div>
         <button class="btn btn-primary" id="sp-empty-next">Продолжить</button>
       </div></div>`;
       container.querySelector('#sp-empty-next').addEventListener('click', () => onDone({ correct:0, total:0, duration_sec:0 }));
       return;
     }
 
-    const shuffled = [...items].sort(() => Math.random() - .5);
-    let idx = 0, correct = 0;
-    const answers = [];
+    const leftItems  = items.map((item, i) => ({ ...item, idx: i }));
+    const rightItems = [...items.map((item, i) => ({ ...item, idx: i }))]
+      .sort(() => Math.random() - .5);
+    let attempts = 0;
+    while (rightItems.some((r, i) => r.idx === i) && attempts < 20) {
+      rightItems.sort(() => Math.random() - .5);
+      attempts++;
+    }
+
+    const matched          = {};
+    const firstAttemptFail = new Set();
+    let selectedRight = null;
     const t0 = Date.now();
 
-    function render() {
-      if (idx >= shuffled.length) {
-        onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now()-t0)/1000), answers });
-        return;
+    async function tryMatch(leftIdx, rightIdx) {
+      if (matched[leftIdx] !== undefined) return;
+      if (Object.values(matched).map(Number).includes(rightIdx)) return;
+      const isCorrect = leftIdx === rightIdx;
+      if (isCorrect) {
+        matched[leftIdx] = rightIdx;
+        selectedRight = null;
+        Sound.success();
+        await render();
+        if (Object.keys(matched).length === items.length) {
+          const correctCount = items.length - firstAttemptFail.size;
+          const dur = Math.round((Date.now() - t0) / 1000);
+          setTimeout(() => onDone({ correct: correctCount, total: items.length, duration_sec: dur }), 500);
+        }
+      } else {
+        firstAttemptFail.add(leftIdx);
+        Sound.error();
+        const slot = container.querySelector(`[data-left="${leftIdx}"]`);
+        slot?.classList.add('wrong');
+        const chip = container.querySelector(`[data-right="${rightIdx}"]`);
+        chip?.classList.add('wrong');
+        setTimeout(() => { slot?.classList.remove('wrong'); chip?.classList.remove('wrong'); }, 700);
       }
-      const item = shuffled[idx];
-      let opts = [{ text: item.answer, img: item.answer_img, correct: true }];
-      const pool = items.filter(it => it !== item).map(it => ({ text: it.answer, img: it.answer_img, correct: false }));
-      const dist = (item.distractors||[]).map(d => ({ text: d, img:'', correct: false }));
-      opts = [...opts, ...[...dist,...pool].sort(()=>Math.random()-.5).slice(0,3)].sort(()=>Math.random()-.5).slice(0,4);
+    }
+
+    const render = async () => {
+      const done  = Object.keys(matched).length;
+      const total = items.length;
+      const unmatchedRight = rightItems.filter(r => !Object.values(matched).map(Number).includes(r.idx));
+      const IMG_H = '180px';
 
       container.innerHTML = `
-        <div class="player-body">
-          <div class="player-card">
-            <div class="player-question">
-              ${item.question_img ? `<img data-path="${escHtml(item.question_img)}" style="max-width:260px;max-height:160px;border-radius:12px;object-fit:contain;display:block;margin:0 auto 12px">` : ''}
-              ${item.question ? escHtml(item.question) : ''}
+        <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:20px 28px">
+          <div style="width:100%;max-width:860px">
+            <div style="font-family:var(--font-title);font-size:17px;text-align:center;margin-bottom:20px;color:var(--text-1)">
+              ${done === total ? 'Всё верно!' : selectedRight !== null ? 'Выбери вопрос слева' : 'Перетащи ответ на нужный вопрос'}
             </div>
-            <div class="player-options cols-2">
-              ${opts.map((o,i) => `
-                <div class="player-opt" data-i="${i}" data-correct="${o.correct}">
-                  ${o.img ? `<img data-path="${escHtml(o.img)}" style="width:110px;height:150px;object-fit:cover;border-radius:10px">` : ''}
-                  ${o.text ? escHtml(o.text) : ''}
-                </div>`).join('')}
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Вопросы</div>
+                ${leftItems.map(item => {
+                  const matchedRIdx = matched[item.idx];
+                  const isMatched   = matchedRIdx !== undefined;
+                  const hadError    = firstAttemptFail.has(item.idx);
+                  const matchedR    = isMatched ? rightItems.find(r => r.idx === +matchedRIdx) : null;
+                  return `
+                    <div class="match-item vm-slot ${isMatched?'matched':''}" data-left="${item.idx}"
+                      style="display:flex;flex-direction:column;overflow:hidden;padding:0;
+                        ${!isMatched?'border:2px dashed var(--border-2);cursor:pointer':''}
+                        ${hadError && isMatched?'border-color:var(--amber)!important;background:var(--amber-l,#FFFBEB)!important':''}">
+                      ${item.question_img
+                        ? `<div style="width:100%;height:${IMG_H};background:var(--surface-2);overflow:hidden;flex-shrink:0">
+                            <img data-path="${escHtml(item.question_img)}" style="width:100%;height:100%;object-fit:contain">
+                          </div>`
+                        : ''}
+                      ${item.question
+                        ? `<div style="padding:10px 12px;font-size:15px;font-weight:600;color:var(--text-1)">${escHtml(item.question)}</div>`
+                        : ''}
+                      ${isMatched
+                        ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+                              background:${hadError?'var(--amber-l,#FFFBEB)':'var(--green-l)'};
+                              border-top:1.5px solid ${hadError?'var(--amber)':'var(--green)'}">
+                            ${matchedR?.answer_img
+                              ? `<img data-path="${escHtml(matchedR.answer_img)}" style="height:40px;max-width:64px;object-fit:contain;border-radius:6px;flex-shrink:0">`
+                              : ''}
+                            ${matchedR?.answer
+                              ? `<span style="font-size:13px;font-weight:700;color:${hadError?'var(--amber-600,#92400E)':'var(--green)'}">${escHtml(matchedR.answer)}</span>`
+                              : ''}
+                            <span style="margin-left:auto;color:${hadError?'var(--amber)':'var(--green)'};font-size:16px">${hadError?'~':'✓'}</span>
+                          </div>`
+                        : `<div style="padding:10px 12px;color:var(--text-3);font-size:12px;text-align:center;
+                              border-top:1px dashed var(--border-2)">перетащи ответ сюда ↓</div>`}
+                    </div>`;
+                }).join('')}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em">Ответы</div>
+                ${unmatchedRight.length === 0
+                  ? `<div style="color:var(--text-3);font-size:13px;padding:20px 0;text-align:center">Все ответы размещены ✓</div>`
+                  : unmatchedRight.map(item => `
+                    <div class="match-item vm-chip ${selectedRight===item.idx?'selected':''}" data-right="${item.idx}"
+                      style="display:flex;flex-direction:column;overflow:hidden;padding:0;
+                        cursor:grab;touch-action:none;user-select:none">
+                      ${item.answer_img
+                        ? `<div style="width:100%;height:${IMG_H};background:var(--surface-2);overflow:hidden;flex-shrink:0">
+                            <img data-path="${escHtml(item.answer_img)}" style="width:100%;height:100%;object-fit:contain">
+                          </div>`
+                        : ''}
+                      ${item.answer
+                        ? `<div style="padding:10px 12px;font-size:15px;font-weight:600;color:var(--text-1)">${escHtml(item.answer)}</div>`
+                        : ''}
+                    </div>`).join('')}
+              </div>
             </div>
           </div>
         </div>`;
 
-      loadPlayerImages(container);
-      container.querySelectorAll('.player-opt').forEach(opt => {
-        opt.addEventListener('click', () => {
-          const ok = opt.dataset.correct === 'true';
-          opt.classList.add(ok ? 'correct' : 'wrong');
-          if (ok) Sound.success(); else Sound.error();
-          if (!ok) container.querySelectorAll('.player-opt').forEach(o => { if (o.dataset.correct==='true') o.classList.add('correct'); });
-          else correct++;
-          answers.push({ question: item.question, is_correct: ok });
-          container.querySelectorAll('.player-opt').forEach(o => o.classList.add('disabled'));
-          setTimeout(() => { idx++; render(); }, 900);
+      await loadPlayerImages(container);
+      if (done === total) return;
+
+      container.querySelectorAll('.vm-chip[data-right]').forEach(chip => {
+        const rightIdx = +chip.dataset.right;
+        DnD.makeDraggable(chip, {
+          data: { rightIdx },
+          onDragStart: () => { selectedRight = null; },
+        });
+        chip.addEventListener('click', () => {
+          selectedRight = selectedRight === rightIdx ? null : rightIdx;
+          render();
         });
       });
-    }
-    render();
+
+      container.querySelectorAll('.vm-slot[data-left]').forEach(slot => {
+        const leftIdx = +slot.dataset.left;
+        if (matched[leftIdx] !== undefined) return;
+        DnD.makeDropTarget(slot, {
+          onDrop: ({ rightIdx }) => tryMatch(leftIdx, rightIdx),
+        });
+        slot.addEventListener('click', () => {
+          if (selectedRight !== null) tryMatch(leftIdx, selectedRight);
+        });
+      });
+    };
+
+    await render();
   },
 
   // ── Find Pairs ──────────────────────────────────────────────────────────────
-  findPairs(ex, content, container, onDone) {
+  memory_game(ex, content, container, onDone) {
     const pairs = content.pairs || [];
     if (!pairs.length) {
       container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center">
@@ -419,7 +510,7 @@ const SpTypes = {
       container.innerHTML = `
         <div class="player-body">
           <div class="player-card">
-            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:20px">Найди все пары</div>
+            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:20px">Найди все пары (Мемо)</div>
             <div class="pairs-grid">
               ${cards.map(c => `
                 <div class="pair-card ${matched.has(c.id)?'matched':''}" data-id="${c.id}">
@@ -465,6 +556,118 @@ const SpTypes = {
       });
     }
     render();
+  },
+
+  // ── Найди пару (find_pairs) — два столбца, линии ────────────────────────────
+  async findPairs(ex, content, container, onDone) {
+    const pairs = content.pairs || [];
+    if (!pairs.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center">
+        <div style="color:var(--text-3);font-size:16px;margin-bottom:20px">Упражнение пусто.</div>
+        <button class="btn btn-primary" id="sp-empty-next">Продолжить</button>
+      </div></div>`;
+      container.querySelector('#sp-empty-next').addEventListener('click', () => onDone({ correct:0, total:0, duration_sec:0 }));
+      return;
+    }
+
+    const leftItems  = pairs.map((p, i) => ({ idx: i, text: p.a_text, img: p.a_img }));
+    const rightItems = pairs.map((p, i) => ({ idx: i, text: p.b_text, img: p.b_img }))
+                            .sort(() => Math.random() - .5);
+
+    let attempts = 0;
+    while (rightItems.some((r, i) => r.idx === i) && attempts < 20) {
+      rightItems.sort(() => Math.random() - .5);
+      attempts++;
+    }
+
+    let selectedLeft = null;
+    const matched    = {};
+    const errors     = {};
+    const firstAttemptFail = new Set();
+    const t0 = Date.now();
+
+    const render = async () => {
+      const total = pairs.length;
+      const done  = Object.keys(matched).length;
+
+      container.innerHTML = `
+        <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:24px 32px">
+          <div style="width:100%;max-width:860px">
+            <div style="font-family:var(--font-title);font-size:18px;text-align:center;
+              margin-bottom:20px;color:var(--text-1)">
+              ${selectedLeft !== null ? 'Выбери пару справа' : done === total ? 'Все пары найдены!' : 'Выбери объект слева'}
+            </div>
+            <div style="position:relative" id="fp2-sp-arena">
+              <div style="display:grid;grid-template-columns:1fr 48px 1fr;gap:0 12px">
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  ${leftItems.map(item => {
+                    const isMatched  = matched[item.idx] !== undefined;
+                    const isSelected = selectedLeft === item.idx;
+                    return `<div class="match-item ${isMatched ? 'matched' : isSelected ? 'selected' : ''}"
+                      data-left="${item.idx}" style="min-height:70px">
+                      ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:100%;max-height:110px;object-fit:contain;border-radius:8px">` : ''}
+                      ${item.text ? `<div class="mi-label">${escHtml(item.text)}</div>` : ''}
+                    </div>`;
+                  }).join('')}
+                </div>
+                <div style="position:relative"></div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  ${rightItems.map(item => {
+                    const isMatched = Object.entries(matched).some(([l,r]) => +r === item.idx);
+                    const isError   = errors[item.idx];
+                    return `<div class="match-item ${isMatched ? 'matched' : ''} ${isError ? 'wrong' : ''}"
+                      data-right="${item.idx}" style="min-height:70px">
+                      ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:100%;max-height:110px;object-fit:contain;border-radius:8px">` : ''}
+                      ${item.text ? `<div class="mi-label">${escHtml(item.text)}</div>` : ''}
+                    </div>`;
+                  }).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+      await loadPlayerImages(container);
+      _drawMatchLines(container, leftItems, rightItems, matched, '#fp2-sp-arena');
+
+      if (done === total) {
+        const correctCount = total - firstAttemptFail.size;
+        onDone({ correct: correctCount, total, duration_sec: Math.round((Date.now()-t0)/1000) });
+        return;
+      }
+
+      container.querySelectorAll('[data-left]').forEach(card => {
+        card.addEventListener('click', () => {
+          const idx = +card.dataset.left;
+          if (matched[idx] !== undefined) return;
+          selectedLeft = selectedLeft === idx ? null : idx;
+          render();
+        });
+      });
+
+      container.querySelectorAll('[data-right]').forEach(card => {
+        card.addEventListener('click', async () => {
+          if (selectedLeft === null) return;
+          const rightIdx = +card.dataset.right;
+          if (Object.values(matched).map(Number).includes(rightIdx)) return;
+          const isCorrect = rightIdx === selectedLeft;
+          if (isCorrect) {
+            matched[selectedLeft] = rightIdx;
+            Sound.success();
+            selectedLeft = null;
+            render();
+          } else {
+            firstAttemptFail.add(selectedLeft);
+            Sound.error();
+            errors[rightIdx] = true;
+            await render();
+            setTimeout(() => { delete errors[rightIdx]; render(); }, 700);
+          }
+        });
+      });
+    };
+
+    await render();
   },
 
   // ── Odd One Out ─────────────────────────────────────────────────────────────
@@ -525,9 +728,12 @@ const SpTypes = {
   },
 
   // ── Sorting ─────────────────────────────────────────────────────────────────
-  sorting(ex, content, container, onDone) {
-    const cats  = content.categories || [];
+  async sorting(ex, content, container, onDone) {
+    // Нормализуем категории: строки → объекты {name, img}
+    const rawCats = content.categories || [];
+    const cats = rawCats.map(c => typeof c === 'string' ? { name: c, img: '' } : c);
     const items = content.items || [];
+
     if (!cats.length || !items.length) {
       container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center">
         <div style="color:var(--text-3);font-size:16px;margin-bottom:20px">Упражнение пусто.</div>
@@ -538,64 +744,113 @@ const SpTypes = {
     }
 
     const shuffled = [...items].sort(() => Math.random() - .5);
-    let remaining = [...shuffled], selected = null, placed = {}, correct = 0;
+    const placed   = {};
+    cats.forEach(c => { placed[c.name] = []; });
+    const wrongOnce = new Set();
     const t0 = Date.now();
-    cats.forEach(c => placed[c] = []);
 
-    async function render() {
+    const render = async () => {
+      const totalPlaced = Object.values(placed).reduce((s, a) => s + a.length, 0);
+      const isDone = totalPlaced === shuffled.length;
+
       container.innerHTML = `
-        <div class="player-body" style="overflow-y:auto">
-          <div class="player-card" style="max-width:840px;width:100%">
-            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:20px">Разложи по группам</div>
-            <div class="sort-source">
-              ${remaining.map((it,i) => `
-                <div class="sort-chip" data-i="${i}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:4px">` : ''}
-                  ${escHtml(it.text||'')}
-                </div>`).join('')}
-              ${!remaining.length ? '<span style="color:var(--text-3);font-size:13px">Все распределены</span>' : ''}
+        <div class="player-body" style="overflow-y:auto;align-items:flex-start;padding:24px 32px">
+          <div style="width:100%;max-width:860px">
+            <div style="font-family:var(--font-title);font-size:18px;text-align:center;margin-bottom:20px">
+              Разложи по корзинам
             </div>
-            <div class="sort-buckets" style="grid-template-columns:repeat(${Math.min(cats.length,3)},1fr)">
+            <!-- Пул -->
+            <div style="display:flex;flex-wrap:wrap;gap:10px;min-height:60px;
+              padding:12px;background:var(--surface-2);border-radius:var(--r-xl);
+              border:2px dashed var(--border-2);margin-bottom:20px" id="sp-sort-pool">
+              ${shuffled.filter(it => !Object.values(placed).flat().includes(it)).map((it, i) => `
+                <div class="sort-chip-v2" data-pool-i="${i}">
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-sm)">` : ''}
+                  ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
+                </div>`).join('')
+              || '<div style="color:var(--text-3);font-size:13px;margin:auto">Все распределены ✓</div>'}
+            </div>
+            <!-- Корзины -->
+            <div style="display:grid;grid-template-columns:repeat(${Math.min(cats.length,3)},1fr);gap:12px">
               ${cats.map(cat => `
-                <div class="sort-bucket" data-cat="${escHtml(cat)}">
-                  <div class="sort-bucket-title">${escHtml(cat)}</div>
-                  <div class="sort-bucket-items">
-                    ${(placed[cat]||[]).map(it => `<div class="sort-placed ${it.category===cat?'':'wrong'}">${escHtml(it.text||'?')}</div>`).join('')}
+                <div class="sort-bucket-v2" data-bucket="${escHtml(cat.name)}">
+                  <div class="sb-header">
+                    ${cat.img ? `<img data-path="${escHtml(cat.img)}" class="sb-img">` : ''}
+                    <div class="sb-title">${escHtml(cat.name)}</div>
+                  </div>
+                  <div class="sb-items">
+                    ${(placed[cat.name]||[]).map(it => `
+                      <div class="sort-chip-v2 placed-chip" data-placed-cat="${escHtml(cat.name)}" style="cursor:pointer">
+                        ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:90px;height:90px;object-fit:cover;border-radius:var(--r-sm)">` : ''}
+                        ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
+                      </div>`).join('')}
                   </div>
                 </div>`).join('')}
             </div>
-            ${!remaining.length ? `
+            ${isDone ? `
               <div style="text-align:center;margin-top:20px">
-                <button class="btn btn-primary" id="sp-sort-done">Готово</button>
+                <button class="btn btn-primary" id="sp-sort-done" style="padding:14px 40px;font-size:16px">
+                  Готово ✓
+                </button>
               </div>` : ''}
           </div>
         </div>`;
 
       await loadPlayerImages(container);
 
-      container.querySelectorAll('.sort-chip').forEach(chip => {
+      let selected = null;
+      const poolItems = shuffled.filter(it => !Object.values(placed).flat().includes(it));
+
+      container.querySelectorAll('.sort-chip-v2[data-pool-i]').forEach((chip, ci) => {
+        const item = poolItems[ci];
         chip.addEventListener('click', () => {
-          container.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('selected-chip'));
-          chip.classList.add('selected-chip');
-          selected = remaining[+chip.dataset.i];
+          if (selected?.item === item) { selected = null; chip.classList.remove('selected'); render(); return; }
+          container.querySelectorAll('.sort-chip-v2').forEach(c => c.classList.remove('selected'));
+          chip.classList.add('selected');
+          selected = { item };
+        });
+        DnD.makeDraggable(chip, { data: { item } });
+      });
+
+      container.querySelectorAll('.placed-chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+          e.stopPropagation();
+          const catName = chip.dataset.placedCat;
+          const imgPath = chip.querySelector('img')?.dataset?.path || '';
+          const text    = chip.querySelector('.sc-label')?.textContent || '';
+          const idx = placed[catName].findIndex(it =>
+            (it.img === imgPath || (!it.img && !imgPath)) &&
+            (it.text === text   || (!it.text && !text))
+          );
+          if (idx !== -1) { placed[catName].splice(idx, 1); render(); }
         });
       });
-      container.querySelectorAll('.sort-bucket').forEach(bucket => {
+
+      container.querySelectorAll('.sort-bucket-v2').forEach(bucket => {
+        const catName = bucket.dataset.bucket;
+        DnD.makeDropTarget(bucket, {
+          onDrop: (data) => {
+            placed[catName].push(data.item);
+            if (data.item.category !== catName) wrongOnce.add(data.item);
+            DnD.cleanup(container);
+            render();
+          },
+        });
         bucket.addEventListener('click', () => {
           if (!selected) return;
-          const cat = bucket.dataset.cat;
-          placed[cat].push(selected);
-          remaining = remaining.filter(it => it !== selected);
-          if (selected.category === cat) correct++;
+          placed[catName].push(selected.item);
+          if (selected.item.category !== catName) wrongOnce.add(selected.item);
           selected = null;
           render();
         });
       });
+
       container.querySelector('#sp-sort-done')?.addEventListener('click', () => {
+        const correct = shuffled.filter(it => !wrongOnce.has(it) && it.category === Object.keys(placed).find(k => placed[k].includes(it))).length;
         onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now()-t0)/1000) });
       });
-    }
-    render();
+    };
+    await render();
   },
 };
 
@@ -618,7 +873,8 @@ const SpRunner = {
 
     const routes = {
       visual_match:  () => SpTypes.visualMatch(ex, { ...c, items: norm(c.pairs||c.items||[]) }, container, onDone),
-      find_pairs:    () => SpTypes.findPairs(ex, { ...c, pairs: (c.cards||c.pairs||[]).map((p,i)=>({...p,a_text:p.text||p.a_text||'',b_text:p.text||p.b_text||'',a_img:p.image||p.img||p.a_img||'',b_img:p.image||p.img||p.b_img||'',pairId:i})) }, container, onDone),
+      find_pairs:    () => SpTypes.findPairs(ex, { ...c, pairs: (c.pairs||[]) }, container, onDone),
+      memory_game:   () => SpTypes.memory_game(ex, { ...c, pairs: (c.cards||c.pairs||[]).map((p,i)=>({...p,a_text:p.text||p.a_text||'',b_text:p.text||p.b_text||'',a_img:p.image||p.img||p.a_img||'',b_img:p.image||p.img||p.b_img||'',pairId:i})) }, container, onDone),
       odd_one_out:   () => SpTypes.oddOneOut(ex, { ...c, tasks: (c.tasks||[]).map(t=>({...t,items:(t.items||[]).map(it=>({...it,img:it.img||it.image||''}))}) ) }, container, onDone),
       sorting:       () => SpTypes.sorting(ex, {
           categories: (c.categories||[]).map(cat=>cat.name||cat),
@@ -689,25 +945,25 @@ Object.assign(SpTypes, {
         <div class="player-body" style="overflow-y:auto">
           <div class="player-card" style="max-width:840px;width:100%">
             <div class="player-question" style="margin-bottom:20px">Расставь по порядку</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:90px;
+            <div id="sp-seq-zone" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;min-height:90px;
               background:var(--surface-2);border:2px dashed var(--border);border-radius:var(--r-lg);padding:10px;margin-bottom:16px">
               ${selected.map((origIdx,pos) => {
                 const item = items[origIdx];
-                return `<div class="seq-placed" data-pos="${pos}" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
-                  padding:8px;border-radius:var(--r-lg);border:2px solid var(--indigo);background:var(--indigo-l);min-width:70px;text-align:center">
+                return `<div class="seq-placed" data-pos="${pos}" data-orig="${origIdx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
+                  padding:8px;border-radius:var(--r-lg);border:2px solid var(--indigo);background:var(--indigo-l);min-width:70px;text-align:center;touch-action:none">
                   <div style="font-size:10px;font-weight:700;color:var(--indigo)">${pos+1}</div>
                   ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:cover;border-radius:8px">` : ''}
                   ${item.label ? `<div style="font-size:11px;color:var(--indigo);font-weight:600">${escHtml(item.label)}</div>` : ''}
                 </div>`;
-              }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Нажимайте на элементы ниже</div>'}
+              }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Перетащи или нажимай элементы</div>'}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:20px">
               ${order.map((origIdx) => {
                 const item = items[origIdx];
                 const placed = selected.includes(origIdx);
                 return `<div class="${placed?'':'seq-opt'}" data-orig="${origIdx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;
-                  cursor:${placed?'default':'pointer'};opacity:${placed?.2:1};padding:8px;border-radius:var(--r-lg);
-                  border:2px solid var(--border);background:var(--surface);min-width:70px;text-align:center">
+                  cursor:${placed?'default':'grab'};opacity:${placed?.2:1};padding:8px;border-radius:var(--r-lg);
+                  border:2px solid var(--border);background:var(--surface);min-width:70px;text-align:center;touch-action:none">
                   ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:cover;border-radius:8px">` : ''}
                   ${item.label ? `<div style="font-size:11px;color:var(--text-2)">${escHtml(item.label)}</div>` : ''}
                 </div>`;
@@ -720,12 +976,38 @@ Object.assign(SpTypes, {
           </div>
         </div>`;
       await loadPlayerImages(container);
+
       container.querySelectorAll('.seq-opt').forEach(opt => opt.addEventListener('click', () => { selected.push(+opt.dataset.orig); render(); }));
       container.querySelectorAll('.seq-placed').forEach(p => p.addEventListener('click', () => { selected.splice(+p.dataset.pos,1); render(); }));
       container.querySelector('#seq-undo')?.addEventListener('click', () => { selected.pop(); render(); });
       container.querySelector('#seq-check')?.addEventListener('click', () => {
         const correct = selected.filter((origIdx,pos) => origIdx===pos).length;
         onDone({ correct, total: items.length, duration_sec: Math.round((Date.now()-t0)/1000) });
+      });
+
+      // DnD: тащить из пула в зону
+      container.querySelectorAll('.seq-opt[data-orig]').forEach(chip => {
+        DnD.makeDraggable(chip, { data: { origIdx: +chip.dataset.orig } });
+      });
+      const zone = container.querySelector('#sp-seq-zone');
+      if (zone) {
+        DnD.makeDropTarget(zone, {
+          onDrop: ({ origIdx }) => {
+            if (!selected.includes(origIdx)) { selected.push(origIdx); DnD.cleanup(container); render(); }
+          },
+        });
+      }
+      // DnD: переставить размещённые
+      container.querySelectorAll('.seq-placed[data-pos]').forEach(placed => {
+        const pos = +placed.dataset.pos;
+        DnD.makeDraggable(placed, { data: { placedPos: pos } });
+        DnD.makeDropTarget(placed, {
+          onDrop: ({ placedPos: fp }) => {
+            if (fp === undefined || fp === pos) return;
+            [selected[fp], selected[pos]] = [selected[pos], selected[fp]];
+            DnD.cleanup(container); render();
+          },
+        });
       });
     }
     render();
@@ -745,11 +1027,10 @@ Object.assign(SpTypes, {
       container.querySelector('#sp-skip').addEventListener('click', () => onDone({correct:0,total:0,duration_sec:0}));
       return;
     }
-    const correctOrder = [...items].sort((a,b) => dir==='asc' ? a.size-b.size : b.size-a.size);
-    const shuffled     = [...items].sort(() => Math.random()-.5);
-    let   order        = [...Array(shuffled.length).keys()];
-    let   selPos       = null;
-    const t0           = Date.now();
+    const shuffled = [...items].sort(() => Math.random()-.5);
+    let   order    = [...Array(shuffled.length).keys()];
+    let   selPos   = null;
+    const t0       = Date.now();
 
     async function render() {
       container.innerHTML = `
@@ -760,29 +1041,54 @@ Object.assign(SpTypes, {
               ${order.map((si,pos) => {
                 const item = shuffled[si];
                 const isSel = selPos===pos;
-                return `<div class="so-item" data-pos="${pos}" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
+                return `<div class="so-item" data-pos="${pos}" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:grab;
                   padding:10px;border-radius:var(--r-xl);border:2px solid ${isSel?'var(--indigo)':'var(--border)'};
-                  background:${isSel?'var(--indigo-l)':'var(--surface)'};min-width:78px;text-align:center">
+                  background:${isSel?'var(--indigo-l)':'var(--surface)'};min-width:78px;text-align:center;
+                  touch-action:none;user-select:none;transition:border-color .15s">
                   <div style="font-size:10px;font-weight:700;color:${isSel?'var(--indigo)':'var(--text-3)'}">${pos+1}</div>
                   ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:106px;height:106px;object-fit:contain;border-radius:8px">` : ''}
                   ${item.label ? `<div style="font-size:11px;color:var(--text-2)">${escHtml(item.label)}</div>` : ''}
                 </div>`;
               }).join('')}
             </div>
-            <div style="text-align:center;font-size:12px;color:var(--text-3);margin-bottom:12px">Нажми два элемента, чтобы поменять местами</div>
+            <div style="text-align:center;font-size:12px;color:var(--text-3);margin-bottom:12px">
+              Перетащи или нажми два элемента, чтобы поменять местами
+            </div>
             <div style="text-align:center"><button class="btn btn-primary" id="so-check">Проверить →</button></div>
           </div>
         </div>`;
       await loadPlayerImages(container);
+
+      // Тап: выбрать первый → второй → swap
       container.querySelectorAll('.so-item').forEach(el => {
         el.addEventListener('click', () => {
           const pos = +el.dataset.pos;
           if (selPos===null) { selPos=pos; render(); }
+          else if (selPos===pos) { selPos=null; render(); }
           else { [order[selPos],order[pos]]=[order[pos],order[selPos]]; selPos=null; render(); }
         });
       });
+
+      // DnD: тащить одну карточку на другую → swap
+      container.querySelectorAll('.so-item[data-pos]').forEach(card => {
+        const fromPos = +card.dataset.pos;
+        DnD.makeDraggable(card, {
+          data: { fromPos },
+          onDragStart: () => { selPos = null; },
+        });
+        DnD.makeDropTarget(card, {
+          onDrop: ({ fromPos: fp }) => {
+            if (fp === undefined || fp === fromPos) return;
+            [order[fp], order[fromPos]] = [order[fromPos], order[fp]];
+            DnD.cleanup(container); render();
+          },
+        });
+      });
+
       container.querySelector('#so-check').addEventListener('click', () => {
-        const correct = order.filter((si,pos) => shuffled[si].label===correctOrder[pos].label).length;
+        // Правильный порядок — items[0] наименьший, items[n-1] наибольший
+        const correctOrder = dir==='asc' ? items : [...items].reverse();
+        const correct = order.filter((si,pos) => shuffled[si].label===correctOrder[pos]?.label || shuffled[si].img===correctOrder[pos]?.img).length;
         onDone({ correct, total:items.length, duration_sec:Math.round((Date.now()-t0)/1000) });
       });
     }
@@ -837,35 +1143,85 @@ Object.assign(SpTypes, {
   },
 
   // ── Продолжи ряд ──────────────────────────────────────────────────────────
-  pattern(ex, content, container, onDone) {
-    const seqs = content.sequences || [];
+  async pattern(ex, content, container, onDone) {
+    const seqs  = content.sequences || [];
+    const isImg = content.mode === 'image';
     if (!seqs.length) {
       container.innerHTML=`<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет рядов</div><button class="btn btn-primary" id="sp-skip">Пропустить</button></div></div>`;
       container.querySelector('#sp-skip').addEventListener('click', () => onDone({correct:0,total:0,duration_sec:0}));
       return;
     }
     let idx=0, correct=0; const t0=Date.now();
-    function next() {
+    const next = async () => {
       if (idx>=seqs.length) { onDone({correct,total:seqs.length,duration_sec:Math.round((Date.now()-t0)/1000)}); return; }
       const seq=seqs[idx];
-      const opts=[...seq.options].map((v,i)=>({v,i})).sort(()=>Math.random()-.5);
-      container.innerHTML=`<div class="player-body" style="overflow-y:auto"><div class="player-card" style="max-width:720px;width:100%">
-        <div class="player-question" style="margin-bottom:20px">Что идёт дальше? (${idx+1}/${seqs.length})</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:24px">
-          ${seq.items.map(v=>`<div style="width:54px;height:80px;border-radius:var(--r-md);background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px">${escHtml(String(v))}</div>`).join('')}
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-          ${opts.map(opt=>`<button class="player-opt pat-opt" data-i="${opt.i}" style="width:82px;height:82px;font-size:26px;font-weight:800;padding:0;display:flex;align-items:center;justify-content:center">${escHtml(String(opt.v))}</button>`).join('')}
-        </div></div></div>`;
-      container.querySelectorAll('.pat-opt').forEach(btn=>btn.addEventListener('click',()=>{
-        const ok=+btn.dataset.i===seq.answer;
-        if(ok) correct++;
-        container.querySelectorAll('.pat-opt').forEach(b=>{b.disabled=true; if(+b.dataset.i===seq.answer){b.style.background='var(--green-l)';b.style.borderColor='var(--green)';}});
-        if(!ok){btn.style.background='var(--rose-l)';btn.style.borderColor='var(--rose)';}
-        idx++; setTimeout(next,1000);
-      }));
-    }
-    next();
+
+      if (!isImg) {
+        // ── Текстовый режим ─────────────────────────────────────────────────
+        const opts=[...(seq.options||[])].map((v,i)=>({v,i})).sort(()=>Math.random()-.5);
+        container.innerHTML=`<div class="player-body" style="overflow-y:auto"><div class="player-card" style="max-width:720px;width:100%">
+          <div class="player-question" style="margin-bottom:20px">Что идёт дальше? (${idx+1}/${seqs.length})</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:24px">
+            ${(seq.items||[]).map(v=>`<div style="width:54px;height:80px;border-radius:var(--r-md);background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px">${escHtml(String(v))}</div>`).join('')}
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+            ${opts.map(opt=>`<button class="player-opt pat-opt" data-i="${opt.i}" style="width:82px;height:82px;font-size:26px;font-weight:800;padding:0;display:flex;align-items:center;justify-content:center">${escHtml(String(opt.v))}</button>`).join('')}
+          </div></div></div>`;
+        container.querySelectorAll('.pat-opt').forEach(btn=>btn.addEventListener('click',()=>{
+          const ok=+btn.dataset.i===seq.answer;
+          if(ok){Sound.success();correct++;}else Sound.error();
+          container.querySelectorAll('.pat-opt').forEach(b=>{b.disabled=true; if(+b.dataset.i===seq.answer){b.style.background='var(--green-l)';b.style.borderColor='var(--green)';}});
+          if(!ok){btn.style.background='var(--rose-l)';btn.style.borderColor='var(--rose)';}
+          idx++; setTimeout(next,1000);
+        }));
+
+      } else {
+        // ── Режим картинок ──────────────────────────────────────────────────
+        const items    = seq.items   || [];
+        const gapIdx   = seq.gap_index ?? items.length - 1;
+        const options  = seq.options  || [];
+        const shuffled = [...options.map((op,i)=>({op,i}))].sort(()=>Math.random()-.5);
+
+        container.innerHTML=`<div class="player-body" style="overflow-y:auto"><div class="player-card" style="max-width:720px;width:100%">
+          <div class="player-question" style="margin-bottom:20px">Что на месте знака вопроса? (${idx+1}/${seqs.length})</div>
+          <div style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;margin-bottom:24px" id="pat-sp-row"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center" id="pat-sp-opts"></div>
+        </div></div>`;
+
+        const rowWrap  = container.querySelector('#pat-sp-row');
+        const optsWrap = container.querySelector('#pat-sp-opts');
+
+        for (let ii=0; ii<items.length; ii++) {
+          const cell=document.createElement('div');
+          cell.style.cssText='width:72px;height:72px;border-radius:var(--r-md);background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;flex-shrink:0';
+          if (ii===gapIdx) {
+            cell.style.borderStyle='dashed'; cell.style.background='var(--surface-2)';
+            cell.innerHTML='<span style="font-size:28px;color:var(--text-3)">?</span>';
+          } else {
+            const it=items[ii];
+            if (it&&it.img) { const d=await window.db.files.getImageData(it.img); if(d) cell.innerHTML=`<img src="${d}" style="width:100%;height:100%;object-fit:contain">`; }
+            if (it&&it.label) { const lbl=document.createElement('div'); lbl.style.cssText='font-size:10px;color:var(--text-2);text-align:center'; lbl.textContent=it.label; cell.appendChild(lbl); }
+          }
+          rowWrap.appendChild(cell);
+        }
+
+        for (const {op,i} of shuffled) {
+          const btn=document.createElement('button'); btn.className='player-opt pat-sp-opt'; btn.dataset.i=i;
+          btn.style.cssText='width:86px;height:86px;padding:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px';
+          if (op.img) { const d=await window.db.files.getImageData(op.img); if(d){const img=document.createElement('img');img.src=d;img.style.cssText='width:100%;height:66px;object-fit:contain;border-radius:var(--r-sm)';btn.appendChild(img);} }
+          if (op.label) { const lbl=document.createElement('div'); lbl.style.cssText='font-size:10px;color:var(--text-2)'; lbl.textContent=op.label; btn.appendChild(lbl); }
+          btn.addEventListener('click',()=>{
+            const ok=i===seq.answer;
+            if(ok){Sound.success();correct++;}else Sound.error();
+            container.querySelectorAll('.pat-sp-opt').forEach(b=>{b.disabled=true;if(+b.dataset.i===seq.answer){b.style.background='var(--green-l)';b.style.borderColor='var(--green)';}});
+            if(!ok){btn.style.background='var(--rose-l)';btn.style.borderColor='var(--rose)';}
+            idx++; setTimeout(next,1000);
+          });
+          optsWrap.appendChild(btn);
+        }
+      }
+    };
+    await next();
   },
 
   // ── Слово → картинка ──────────────────────────────────────────────────────
@@ -889,34 +1245,142 @@ Object.assign(SpTypes, {
 
   // ── Составь слово ─────────────────────────────────────────────────────────
   wordBuilder(ex, content, container, onDone) {
-    const words=content.words||[];if(!words.length){container.innerHTML=`<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет слов</div><button class="btn btn-primary" id="sp-skip">Пропустить</button></div></div>`;container.querySelector('#sp-skip').addEventListener('click',()=>onDone({correct:0,total:0,duration_sec:0}));return;}
-    let idx=0,correct=0;const t0=Date.now();
-    function nextWord(){if(idx>=words.length){onDone({correct,total:words.length,duration_sec:Math.round((Date.now()-t0)/1000)});return;}
-      const wordObj=words[idx];const letters=(wordObj.word||'').split('');if(!letters.length){idx++;nextWord();return;}
-      const shuffled=letters.map((l,i)=>({l,i})).sort(()=>Math.random()-.5);let built=[];
-      function render(){
-        container.innerHTML=`<div class="player-body" style="overflow-y:auto"><div class="player-card" style="max-width:680px;width:100%">
-          <div class="player-question" style="margin-bottom:8px">Составь слово (${idx+1}/${words.length})</div>
-          ${wordObj.hint?`<div style="font-size:13px;color:var(--text-3);margin-bottom:12px">${escHtml(wordObj.hint)}</div>`:''}
-          <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;min-height:80px;background:var(--surface-2);border-radius:var(--r-lg);padding:8px;margin-bottom:16px">
-            ${built.map((lt,i)=>`<div class="wb-placed" data-pos="${i}" style="width:58px;height:58px;border-radius:var(--r-md);background:var(--indigo);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;cursor:pointer">${escHtml(lt.l)}</div>`).join('')||'<div style="color:var(--text-3);font-size:13px;margin:auto">Нажимай на буквы</div>'}
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:16px">
-            ${shuffled.map((lt,si)=>{const used=built.some(b=>b.si===si);return`<button class="wb-btn" data-si="${si}" ${used?'disabled':''} style="width:58px;height:58px;border-radius:var(--r-md);border:2px solid ${used?'var(--border)':'var(--indigo)'};background:${used?'var(--surface-2)':'var(--indigo-l)'};color:${used?'var(--text-3)':'var(--indigo)'};font-size:20px;font-weight:700;cursor:${used?'default':'pointer'}">${used?'':escHtml(lt.l)}</button>`;}).join('')}
-          </div>
-          <div style="text-align:center;display:flex;gap:8px;justify-content:center">
-            <button class="btn btn-ghost" id="wb-clear">Очистить</button>
-            <button class="btn btn-primary" id="wb-check" ${built.length!==letters.length?'disabled':''}>Проверить →</button>
-          </div></div></div>`;
-        container.querySelector('#wb-clear').addEventListener('click',()=>{built=[];render();});
-        container.querySelector('#wb-check')?.addEventListener('click',()=>{
-          const ok=built.map(b=>b.l).join('')===wordObj.word;if(ok){Sound.win();correct++;}else Sound.error();
-          const builtEls=container.querySelectorAll('.wb-placed');builtEls.forEach(el=>{el.style.background=ok?'var(--green)':'var(--rose)';});
-          idx++;setTimeout(nextWord,900);});
-        container.querySelectorAll('.wb-btn:not([disabled])').forEach((btn,bi)=>btn.addEventListener('click',()=>{built.push({l:shuffled[+btn.dataset.si].l,si:+btn.dataset.si});render();}));
-        container.querySelectorAll('.wb-placed').forEach((el,i)=>el.addEventListener('click',()=>{built.splice(i,1);render();}));
-      }render();
-    }nextWord();
+    const words = content.words || [];
+    if (!words.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет слов</div><button class="btn btn-primary" id="sp-skip">Пропустить</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct:0, total:0, duration_sec:0 }));
+      return;
+    }
+    let idx = 0, correct = 0;
+    const t0 = Date.now();
+
+    function nextWord() {
+      if (idx >= words.length) {
+        onDone({ correct, total: words.length, duration_sec: Math.round((Date.now()-t0)/1000) });
+        return;
+      }
+      const wordObj = words[idx];
+      const letters = (wordObj.text || wordObj.word || '').toUpperCase().split('');
+      if (!letters.length) { idx++; nextWord(); return; }
+
+      const shuffled = [...letters];
+      for (let i = shuffled.length-1; i > 0; i--) {
+        const j = Math.floor(Math.random()*(i+1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      const pool  = shuffled.map((l, i) => ({ letter: l, id: i }));
+      let slots = Array(letters.length).fill(null);
+
+      function render() {
+        const allFilled = slots.every(s => s !== null);
+        container.innerHTML = `
+          <div class="player-body" style="overflow-y:auto">
+            <div class="player-card" style="max-width:680px;width:100%;text-align:center">
+              <div class="player-question" style="margin-bottom:12px">Составь слово (${idx+1}/${words.length})</div>
+              ${(wordObj.img || wordObj.hint) ? `
+                <div style="margin-bottom:16px">
+                  ${wordObj.img ? `<div id="sp-wb-img" style="margin-bottom:8px"></div>` : ''}
+                  ${wordObj.hint ? `<div style="font-size:13px;color:var(--text-3)">${escHtml(wordObj.hint)}</div>` : ''}
+                </div>` : ''}
+
+              <!-- Позиционные слоты -->
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+                min-height:76px;margin-bottom:20px;align-items:center">
+                ${slots.map((s, pos) => s
+                  ? `<div class="wb-slot wb-slot-filled" data-pos="${pos}"
+                      style="width:62px;height:62px;border-radius:var(--r-lg);
+                        background:var(--indigo);color:#fff;font-size:24px;font-weight:700;
+                        display:flex;align-items:center;justify-content:center;
+                        cursor:pointer;touch-action:none;user-select:none">${s.letter}</div>`
+                  : `<div class="wb-slot wb-slot-empty" data-pos="${pos}"
+                      style="width:62px;height:62px;border-radius:var(--r-lg);
+                        background:var(--surface-2);border:2px dashed var(--border-2);
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:13px;font-weight:700;color:var(--text-3)">${pos+1}</div>`
+                ).join('')}
+              </div>
+
+              <!-- Пул -->
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
+                ${pool.map(p => {
+                  const isUsed = slots.some(s => s?.id === p.id);
+                  return `<div class="wb-pool-letter ${isUsed ? '' : 'wb-pick'}" data-id="${p.id}"
+                    style="width:62px;height:62px;border-radius:var(--r-lg);
+                      background:${isUsed?'var(--surface-2)':'var(--surface)'};
+                      color:${isUsed?'var(--text-3)':'var(--text-1)'};
+                      border:2px solid ${isUsed?'var(--border)':'var(--border-2)'};
+                      font-size:24px;font-weight:700;display:flex;align-items:center;justify-content:center;
+                      cursor:${isUsed?'default':'grab'};opacity:${isUsed?.35:1};
+                      touch-action:none;user-select:none;transition:all .15s">${p.letter}</div>`;
+                }).join('')}
+              </div>
+
+              <div style="display:flex;gap:8px;justify-content:center">
+                ${slots.some(s=>s!==null) ? `<button class="btn btn-ghost" id="sp-wb-clear">Очистить</button>` : ''}
+                ${allFilled ? `<button class="btn btn-primary" id="sp-wb-check">Проверить →</button>` : ''}
+              </div>
+            </div>
+          </div>`;
+
+        if (wordObj.img) {
+          window.db.files.getImageData(wordObj.img).then(d => {
+            const el = container.querySelector('#sp-wb-img');
+            if (el && d) el.innerHTML = `<img src="${d}" style="max-height:140px;object-fit:contain;border-radius:var(--r-lg)">`;
+          }).catch(()=>{});
+        }
+
+        // Тап из пула → первый пустой слот
+        container.querySelectorAll('.wb-pick').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const p = pool.find(p => p.id === +btn.dataset.id);
+            if (!p || slots.some(s => s?.id === p.id)) return;
+            const emptyPos = slots.findIndex(s => s === null);
+            if (emptyPos !== -1) { slots[emptyPos] = { letter: p.letter, id: p.id }; render(); }
+          });
+          DnD.makeDraggable(btn, { data: { poolId: +btn.dataset.id } });
+        });
+
+        // Тап по слоту → убрать
+        container.querySelectorAll('.wb-slot-filled').forEach(slot => {
+          slot.addEventListener('click', () => { slots[+slot.dataset.pos] = null; render(); });
+          DnD.makeDraggable(slot, { data: { fromPos: +slot.dataset.pos } });
+        });
+
+        // Drop targets: все слоты
+        container.querySelectorAll('.wb-slot').forEach(slot => {
+          const toPos = +slot.dataset.pos;
+          DnD.makeDropTarget(slot, {
+            onDrop: (data) => {
+              if (data.poolId !== undefined) {
+                const p = pool.find(p => p.id === data.poolId);
+                if (!p || slots.some(s => s?.id === p.id) || slots[toPos] !== null) return;
+                slots[toPos] = { letter: p.letter, id: p.id };
+              } else if (data.fromPos !== undefined) {
+                const fromPos = data.fromPos;
+                if (fromPos === toPos) return;
+                [slots[fromPos], slots[toPos]] = [slots[toPos], slots[fromPos]];
+              }
+              DnD.cleanup(container);
+              render();
+            },
+          });
+        });
+
+        container.querySelector('#sp-wb-clear')?.addEventListener('click', () => { slots = Array(letters.length).fill(null); render(); });
+        container.querySelector('#sp-wb-check')?.addEventListener('click', () => {
+          const assembled = slots.map(s => s?.letter || '').join('');
+          const ok = assembled === letters.join('');
+          if (ok) { Sound.win(); correct++; } else Sound.error();
+          container.querySelectorAll('.wb-slot-filled').forEach(s => {
+            s.style.background = ok ? 'var(--green)' : 'var(--rose)';
+          });
+          idx++;
+          setTimeout(nextWord, ok ? 700 : 1400);
+        });
+      }
+      render();
+    }
+    nextWord();
   },
 
   // ── Вставь слово ──────────────────────────────────────────────────────────

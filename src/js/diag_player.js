@@ -328,17 +328,6 @@ const DiagPlayer = {
         </div>`;
 
       renderV2Answer(elem, document.getElementById('dp-v2-ans'), answers, () => { idx++; renderNext(); });
-      // Загрузить картинки стимула если есть
-      const body = document.getElementById('dp-body');
-      if (body) {
-        const imgs = body.querySelectorAll('img.lazy-img[data-path]');
-        for (const img of imgs) {
-          const p = img.dataset.path;
-          if (!p) continue;
-          if (p.startsWith('data:')) { img.src = p; continue; }
-          window.db.files.getImageData(p).then(d => { if (d) img.src = d; }).catch(() => {});
-        }
-      }
     };
 
     const finishV2 = async () => {

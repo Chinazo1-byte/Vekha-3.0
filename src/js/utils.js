@@ -47,7 +47,8 @@ function difficultyTag(d) {
 
 const TYPE_ICONS = {
   visual_match:  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="13" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 7h4M8 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 7l1.5 3L12 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  find_pairs:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="9" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 6h2M14.5 13h-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  memory_game:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="9" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 6h2M14.5 13h-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  find_pairs:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="6" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="14" r="2" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="4" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="12" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h3M10 6l3 2.5M7 14h3M10 14l3-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   odd_one_out:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="6" cy="7" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="7" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="14" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="2.5" fill="currentColor" opacity=".15"/><path d="M13 13l3 3M16 13l-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   whats_missing: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1.5"/><path d="M16 9l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   sorting:       `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h6M3 10h6M3 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="12" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".2"/></svg>`,
@@ -70,8 +71,10 @@ const EXERCISE_TYPES = [
   // ── Восприятие и сопоставление ───────────────────────────
   { key: 'visual_match',  label: 'Сопоставление',       color: '#5B5BD6', colorL: '#EDEDFC',
     desc: 'Соедини картинку с картинкой, слово с картинкой или слово со словом' },
-  { key: 'find_pairs',    label: 'Найди пару',           color: '#0D9488', colorL: '#CCFBF1',
+  { key: 'memory_game',   label: 'Мемо',                 color: '#0D9488', colorL: '#CCFBF1',
     desc: 'Игра «Мемо» — перевернуть карточки и найти одинаковые пары' },
+  { key: 'find_pairs',    label: 'Найди пару',           color: '#0369A1', colorL: '#DBEAFE',
+    desc: 'Соединить объекты из левого столбца с парами из правого' },
   { key: 'odd_one_out',   label: 'Лишний предмет',       color: '#D14343', colorL: '#FDEDED',
     desc: 'Из 4 предметов найти тот, который не подходит к остальным' },
   // ── Память и внимание ────────────────────────────────────

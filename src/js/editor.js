@@ -66,6 +66,7 @@ const Editor = {
     const fns  = {
       visual_match: () => EditorTypes.visualMatch(this),
       find_pairs:   () => EditorTypes.findPairs(this),
+      memory_game:  () => EditorTypes.memory_game(this),
       odd_one_out:  () => EditorTypes.oddOneOut(this),
       sorting:      () => EditorTypes.sorting(this),
     };
@@ -112,9 +113,7 @@ async function loadLazyImages(container) {
   const imgs = (container || document).querySelectorAll('img.lazy-img');
   for (const img of imgs) {
     const p = img.dataset.path;
-    if (!p) continue;
-    if (p.startsWith('data:')) { img.src = p; continue; }
-    if (!img.src.startsWith('data:')) {
+    if (p && !img.src.startsWith('data:')) {
       const d = await window.db.files.getImageData(p);
       if (d) img.src = d;
     }
@@ -126,7 +125,9 @@ async function loadLazyImages(container) {
 // ══════════════════════════════════════════════════════════════════════════════
 const EditorTypes = {
 
-  // ── Visual Match: вопрос → правильный ответ + дистракторы ──────────────────
+  // ── Visual Match: сопоставление — левый объект ↔ правый объект ─────────────
+  // Схема: { items: [{question, question_img, answer, answer_img}] }
+  // Поля question/answer сохранены для обратной совместимости.
   visualMatch(editor) {
     const c = editor._content;
     if (!c.items) c.items = [];
@@ -134,56 +135,72 @@ const EditorTypes = {
     function render() {
       const main = document.getElementById('editor-main');
       main.innerHTML = `
-        <div style="max-width:640px">
+        <div style="max-width:700px">
           <div style="font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:6px">Сопоставление</div>
-          <div style="color:var(--text-3);font-size:13.5px;margin-bottom:28px">Ученик видит вопрос и выбирает правильный ответ среди вариантов.</div>
+          <div style="color:var(--text-3);font-size:13.5px;margin-bottom:24px">
+            Ученик видит два столбца и соединяет каждый объект слева с его парой справа.
+          </div>
 
-          <div id="vm-items" style="display:flex;flex-direction:column;gap:14px"></div>
+          <!-- Список пар -->
+          <div id="vm-items" style="margin-bottom:20px"></div>
 
-          <div class="add-item-row" style="margin-top:16px" id="vm-add-row">
-            <div style="flex:1;display:flex;flex-direction:column;gap:10px">
-              <div style="font-size:12.5px;font-weight:600;color:var(--text-2)">ВОПРОС</div>
-              <input class="input-field" id="vm-q-text" placeholder="Текст вопроса (или выберите картинку)">
-              <div id="vm-q-img-preview"></div>
-              <button class="btn btn-ghost btn-sm" id="vm-q-img-btn">+ Добавить картинку к вопросу</button>
-              <div style="font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:4px">ПРАВИЛЬНЫЙ ОТВЕТ</div>
-              <input class="input-field" id="vm-a-text" placeholder="Текст правильного ответа">
-              <div id="vm-a-img-preview"></div>
-              <button class="btn btn-ghost btn-sm" id="vm-a-img-btn">+ Добавить картинку к ответу</button>
-              <div style="font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:4px">ЛИШНИЕ ВАРИАНТЫ (необязательно, через запятую)</div>
-              <input class="input-field" id="vm-distractors" placeholder="кот, собака, рыба">
+          <!-- Форма добавления пары -->
+          <div class="add-item-row" style="flex-direction:column;gap:14px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em">
+              Добавить пару
             </div>
-            <button class="btn btn-primary" id="vm-add-btn" style="align-self:flex-end">Добавить</button>
+            <div style="display:grid;grid-template-columns:1fr 28px 1fr;gap:10px;align-items:start">
+
+              <!-- Левый объект -->
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:11.5px;font-weight:700;color:var(--indigo)">ОБЪЕКТ (левый столбец)</div>
+                <input class="input-field" id="vm-q-text" placeholder="Текст (необязательно)">
+                <div id="vm-q-img-preview" style="min-height:0"></div>
+                <button class="btn btn-ghost btn-sm" id="vm-q-img-btn">🖼 Картинка</button>
+              </div>
+
+              <!-- Стрелка -->
+              <div style="display:flex;align-items:center;justify-content:center;padding-top:28px;
+                font-size:20px;color:var(--text-3)">↔</div>
+
+              <!-- Правый объект -->
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:11.5px;font-weight:700;color:var(--green)">ПАРА (правый столбец)</div>
+                <input class="input-field" id="vm-a-text" placeholder="Текст (необязательно)">
+                <div id="vm-a-img-preview" style="min-height:0"></div>
+                <button class="btn btn-ghost btn-sm" id="vm-a-img-btn">🖼 Картинка</button>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end">
+              <button class="btn btn-primary" id="vm-add-btn">+ Добавить пару</button>
+            </div>
           </div>
         </div>`;
 
-      // Данные для нового элемента
       let newQImg = '', newAImg = '';
 
       document.getElementById('vm-q-img-btn').onclick = () => pickImage((path, data) => {
         newQImg = path;
         document.getElementById('vm-q-img-preview').innerHTML =
-          `<img src="${data}" style="max-height:80px;border-radius:8px;margin-top:4px">`;
+          `<img src="${data}" style="max-height:100px;border-radius:8px;margin-top:2px;display:block">`;
       });
 
       document.getElementById('vm-a-img-btn').onclick = () => pickImage((path, data) => {
         newAImg = path;
         document.getElementById('vm-a-img-preview').innerHTML =
-          `<img src="${data}" style="max-height:80px;border-radius:8px;margin-top:4px">`;
+          `<img src="${data}" style="max-height:100px;border-radius:8px;margin-top:2px;display:block">`;
       });
 
       document.getElementById('vm-add-btn').onclick = () => {
         const qText = document.getElementById('vm-q-text').value.trim();
         const aText = document.getElementById('vm-a-text').value.trim();
-        if (!qText && !newQImg) { toast('Введите вопрос', 'error'); return; }
-        if (!aText && !newAImg) { toast('Введите правильный ответ', 'error'); return; }
-        const distractors = document.getElementById('vm-distractors').value
-          .split(',').map(s => s.trim()).filter(Boolean);
+        if (!qText && !newQImg) { toast('Добавьте текст или картинку для левого объекта', 'error'); return; }
+        if (!aText && !newAImg) { toast('Добавьте текст или картинку для пары', 'error'); return; }
 
         c.items.push({
           question: qText, question_img: newQImg,
-          answer: aText,   answer_img: newAImg,
-          distractors,
+          answer:   aText, answer_img:   newAImg,
         });
         newQImg = ''; newAImg = '';
         render();
@@ -195,50 +212,75 @@ const EditorTypes = {
     async function renderItems() {
       const container = document.getElementById('vm-items');
       if (!container) return;
-      container.innerHTML = c.items.map((item, i) => `
-        <div class="item-card">
-          <button class="item-delete" data-i="${i}">${Icons.trash}</button>
-          <div style="display:flex;gap:20px;align-items:flex-start">
-            <div style="flex:1">
-              <div style="font-size:11px;font-weight:700;color:var(--text-3);margin-bottom:6px">ВОПРОС ${i+1}</div>
+      if (!c.items.length) {
+        container.innerHTML = `<div style="color:var(--text-3);font-size:13px;text-align:center;padding:16px 0">
+          Пар пока нет — добавьте первую пару ниже.</div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 28px 1fr;gap:0 10px;align-items:stretch">
+          <div style="font-size:11px;font-weight:700;color:var(--indigo);text-transform:uppercase;
+            letter-spacing:.05em;padding:0 0 8px 4px">Объект</div>
+          <div></div>
+          <div style="font-size:11px;font-weight:700;color:var(--green);text-transform:uppercase;
+            letter-spacing:.05em;padding:0 0 8px 4px">Пара</div>
+          ${c.items.map((item, i) => `
+            <div class="item-card" style="margin-bottom:8px;position:relative">
               ${item.question_img
-                ? `<img data-path="${escHtml(item.question_img)}" class="lazy-img" style="max-height:80px;border-radius:8px;margin-bottom:6px">`
+                ? `<img data-path="${escHtml(item.question_img)}" class="lazy-img"
+                    style="width:100%;max-height:110px;object-fit:contain;border-radius:8px;margin-bottom:6px">`
                 : ''}
-              <div style="font-size:14px;font-weight:600">${escHtml(item.question) || '<span style="color:var(--text-3)">—</span>'}</div>
+              <div style="font-size:14px;font-weight:500;color:var(--text-1)">
+                ${escHtml(item.question) || '<span style="color:var(--text-3)">—</span>'}
+              </div>
+              <button class="item-delete" data-i="${i}" style="position:absolute;top:8px;right:8px">
+                ${Icons.trash}
+              </button>
             </div>
-            <div style="color:var(--text-3);font-size:18px;align-self:center">→</div>
-            <div style="flex:1">
-              <div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px">ОТВЕТ</div>
+            <div style="display:flex;align-items:center;justify-content:center;font-size:18px;
+              color:var(--text-3);margin-bottom:8px">↔</div>
+            <div class="item-card" style="margin-bottom:8px">
               ${item.answer_img
-                ? `<img data-path="${escHtml(item.answer_img)}" class="lazy-img" style="max-height:80px;border-radius:8px;margin-bottom:6px">`
+                ? `<img data-path="${escHtml(item.answer_img)}" class="lazy-img"
+                    style="width:100%;max-height:110px;object-fit:contain;border-radius:8px;margin-bottom:6px">`
                 : ''}
-              <div style="font-size:14px;font-weight:600;color:var(--green)">${escHtml(item.answer) || '—'}</div>
-              ${item.distractors?.length ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:4px">+${item.distractors.length} лишних</div>` : ''}
+              <div style="font-size:14px;font-weight:500;color:var(--green)">
+                ${escHtml(item.answer) || '—'}
+              </div>
             </div>
-          </div>
-        </div>`).join('');
+          `).join('')}
+        </div>`;
 
       container.querySelectorAll('.item-delete').forEach(btn => {
         btn.onclick = () => { c.items.splice(+btn.dataset.i, 1); render(); };
       });
+
       await loadLazyImages(container);
+
+      // Обновить счётчик в сайдбаре
+      const cnt = document.getElementById('vm-count');
+      if (cnt) cnt.textContent = c.items.length;
     }
 
     render();
 
-    // Сайдбар
     document.getElementById('editor-sidebar').innerHTML = `
-      <div class="editor-section-title">Подсказка</div>
-      <div style="font-size:13px;color:var(--text-2);line-height:1.6">
-        <b>Как работает:</b> ученик видит вопрос и выбирает один правильный ответ из нескольких карточек.<br><br>
-        <b>Лишние варианты</b> — неправильные ответы. Если не добавить, будут использованы ответы из других заданий.
+      <div class="editor-section-title">Как работает</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.7">
+        Ученик видит два столбца: слева объекты, справа их пары — перемешанные.<br><br>
+        Нажимает на объект слева → нажимает его пару справа → линия соединяет их.<br><br>
+        Правильное соединение остаётся, неправильное стряхивает обе карточки.
       </div>
       <div class="divider"></div>
-      <div class="editor-section-title">Заданий: <span id="vm-count">${c.items.length}</span></div>`;
+      <div class="editor-section-title">Пар: <span id="vm-count">${c.items.length}</span></div>
+      <div style="font-size:12px;color:var(--text-3);line-height:1.5;margin-top:4px">
+        Рекомендуется 3–7 пар. При большом количестве упражнение становится сложным.
+      </div>`;
   },
 
-  // ── Find Pairs: открытые карточки, ищем совпадения ─────────────────────────
-  findPairs(editor) {
+  // ── Мемо: открытые карточки, ищем совпадения ────────────────────────────────
+  memory_game(editor) {
     const c = editor._content;
     if (!c.pairs) c.pairs = [];
 
@@ -246,7 +288,7 @@ const EditorTypes = {
       const main = document.getElementById('editor-main');
       main.innerHTML = `
         <div style="max-width:640px">
-          <div style="font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:6px">Найди пару</div>
+          <div style="font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:6px">Мемо</div>
           <div style="color:var(--text-3);font-size:13.5px;margin-bottom:28px">Карточки перемешиваются. Ученик открывает по две и ищет совпадающие пары.</div>
 
           <div id="fp-items" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px"></div>
@@ -323,6 +365,110 @@ const EditorTypes = {
       <div class="editor-section-title">Подсказка</div>
       <div style="font-size:13px;color:var(--text-2);line-height:1.6">
         Все карточки перемешиваются и кладутся «рубашкой» вниз. Ученик открывает по две — если совпали, остаются открытыми.
+      </div>
+      <div class="divider"></div>
+      <div class="editor-section-title">Пар: ${c.pairs.length}</div>`;
+  },
+
+  // ── Найди пару (find_pairs) ──────────────────────────────────────────────────
+  findPairs(editor) {
+    const c = editor._content;
+    if (!c.pairs) c.pairs = [];
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div style="max-width:700px">
+          <div style="font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:6px">Найди пару</div>
+          <div style="color:var(--text-3);font-size:13.5px;margin-bottom:24px">
+            Ученик видит два столбца объектов и соединяет каждый из левого столбца с его парой из правого.
+          </div>
+
+          <div id="fpv2-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px"></div>
+
+          <details style="border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden">
+            <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:13.5px;
+                            background:var(--surface);color:var(--text-1);list-style:none;user-select:none">
+              + Добавить пару
+            </summary>
+            <div style="padding:16px;background:var(--bg);border-top:1px solid var(--border)">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:14px">
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:8px;letter-spacing:.04em">ОБЪЕКТ А</div>
+                  <input class="input-field" id="fpv2-a-text" placeholder="Текст (необязательно)" style="margin-bottom:8px">
+                  <div id="fpv2-a-img-p"></div>
+                  <button class="btn btn-ghost btn-sm" id="fpv2-a-img-btn" style="margin-top:6px">+ Картинка</button>
+                </div>
+                <div>
+                  <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:8px;letter-spacing:.04em">ОБЪЕКТ Б (пара)</div>
+                  <input class="input-field" id="fpv2-b-text" placeholder="Текст (необязательно)" style="margin-bottom:8px">
+                  <div id="fpv2-b-img-p"></div>
+                  <button class="btn btn-ghost btn-sm" id="fpv2-b-img-btn" style="margin-top:6px">+ Картинка</button>
+                </div>
+              </div>
+              <button class="btn btn-primary" id="fpv2-add-btn">Добавить</button>
+            </div>
+          </details>
+        </div>`;
+
+      let imgA = '', imgB = '';
+
+      document.getElementById('fpv2-a-img-btn').onclick = () => pickImage((p, d) => {
+        imgA = p;
+        document.getElementById('fpv2-a-img-p').innerHTML =
+          `<img src="${d}" style="max-height:70px;border-radius:6px;display:block">`;
+      });
+      document.getElementById('fpv2-b-img-btn').onclick = () => pickImage((p, d) => {
+        imgB = p;
+        document.getElementById('fpv2-b-img-p').innerHTML =
+          `<img src="${d}" style="max-height:70px;border-radius:6px;display:block">`;
+      });
+
+      document.getElementById('fpv2-add-btn').onclick = () => {
+        const a = document.getElementById('fpv2-a-text').value.trim();
+        const b = document.getElementById('fpv2-b-text').value.trim();
+        if (!a && !imgA) { toast('Укажите объект А', 'error'); return; }
+        if (!b && !imgB) { toast('Укажите объект Б', 'error'); return; }
+        c.pairs.push({ a_text: a, a_img: imgA, b_text: b, b_img: imgB });
+        imgA = ''; imgB = '';
+        render();
+      };
+
+      renderItems();
+    }
+
+    async function renderItems() {
+      const container = document.getElementById('fpv2-list');
+      if (!container) return;
+      container.innerHTML = c.pairs.length === 0
+        ? `<div style="color:var(--text-3);font-size:13px;padding:8px 0">Пар пока нет</div>`
+        : c.pairs.map((pair, i) => `
+          <div class="item-card" style="display:grid;grid-template-columns:auto 1fr 28px 1fr auto;align-items:center;gap:10px;padding:10px 14px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-3);min-width:18px">${i + 1}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${pair.a_img ? `<img data-path="${escHtml(pair.a_img)}" class="lazy-img" style="max-height:52px;border-radius:6px">` : ''}
+              <div style="font-size:13.5px;font-weight:600">${escHtml(pair.a_text) || '<span style="color:var(--text-3)">—</span>'}</div>
+            </div>
+            <div style="color:var(--text-3);text-align:center">↔</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${pair.b_img ? `<img data-path="${escHtml(pair.b_img)}" class="lazy-img" style="max-height:52px;border-radius:6px">` : ''}
+              <div style="font-size:13.5px;font-weight:600">${escHtml(pair.b_text) || '<span style="color:var(--text-3)">—</span>'}</div>
+            </div>
+            <button class="item-delete" data-i="${i}">${Icons.trash}</button>
+          </div>`).join('');
+
+      container.querySelectorAll('.item-delete').forEach(btn => {
+        btn.onclick = () => { c.pairs.splice(+btn.dataset.i, 1); render(); };
+      });
+      await loadLazyImages(container);
+    }
+
+    render();
+
+    document.getElementById('editor-sidebar').innerHTML = `
+      <div class="editor-section-title">Подсказка</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.6">
+        Правый столбец перемешивается. Ученик нажимает объект из левого столбца, затем его пару из правого — они соединяются линией.
       </div>
       <div class="divider"></div>
       <div class="editor-section-title">Пар: ${c.pairs.length}</div>`;
@@ -416,69 +562,115 @@ const EditorTypes = {
     if (!c.categories) c.categories = [];
     if (!c.items) c.items = [];
 
+    // Миграция: если категории — массив строк (старый формат), переводим в объекты
+    c.categories = c.categories.map(cat =>
+      typeof cat === 'string' ? { name: cat, img: '' } : cat
+    );
+
+    // Имя категории (строка) — для совместимости с items.category
+    function catName(cat) { return typeof cat === 'string' ? cat : cat.name; }
+
     function render() {
       const main = document.getElementById('editor-main');
       main.innerHTML = `
-        <div style="max-width:680px">
+        <div style="max-width:700px">
           <div style="font-size:22px;font-weight:700;color:var(--text-1);margin-bottom:6px">Сортировка</div>
-          <div style="color:var(--text-3);font-size:13.5px;margin-bottom:28px">Ученик перетаскивает элементы в правильные категории.</div>
+          <div style="color:var(--text-3);font-size:13.5px;margin-bottom:24px">
+            Ученик перетаскивает элементы в правильные корзины.
+          </div>
 
-          <div style="margin-bottom:20px">
-            <div class="editor-section-title">Категории</div>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px" id="sort-cats">
-              ${c.categories.map((cat, i) => `
-                <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:20px;font-size:13px;font-weight:600;color:var(--indigo)">
-                  ${escHtml(cat)}
-                  <button class="sort-del-cat" data-i="${i}" style="border:none;background:none;cursor:pointer;color:var(--indigo);font-size:14px;line-height:1">×</button>
-                </div>`).join('')}
-            </div>
-            <div style="display:flex;gap:8px">
-              <input class="input-field" id="sort-new-cat" placeholder="Название категории" style="max-width:280px">
-              <button class="btn btn-ghost btn-sm" id="sort-add-cat">+ Категория</button>
-            </div>
+          <!-- Категории -->
+          <div class="editor-section-title">Корзины (категории)</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:14px" id="sort-cats-grid">
+            ${c.categories.map((cat, i) => `
+              <div class="item-card" style="padding:12px;position:relative">
+                <button class="item-delete sort-del-cat" data-i="${i}">${Icons.trash}</button>
+                <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
+                  <!-- Картинка категории -->
+                  <div id="sort-cat-img-wrap-${i}" style="width:80px;height:80px;border-radius:var(--r-md);
+                    overflow:hidden;border:2px dashed var(--border);display:flex;align-items:center;
+                    justify-content:center;cursor:pointer;flex-shrink:0;background:var(--surface-2)"
+                    data-cat-img-btn="${i}">
+                    ${cat.img
+                      ? `<img data-path="${escHtml(cat.img)}" class="lazy-img"
+                          style="width:100%;height:100%;object-fit:cover">`
+                      : `<span style="font-size:24px;color:var(--text-3)">🖼</span>`}
+                  </div>
+                  <span style="font-size:13px;font-weight:600;color:var(--indigo);text-align:center">
+                    ${escHtml(cat.name)}
+                  </span>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <!-- Добавить категорию -->
+          <div style="display:flex;gap:8px;margin-bottom:24px">
+            <input class="input-field" id="sort-new-cat" placeholder="Название новой корзины" style="max-width:260px">
+            <button class="btn btn-ghost btn-sm" id="sort-add-cat">+ Добавить корзину</button>
           </div>
 
           <div class="divider"></div>
-          <div style="margin-bottom:20px">
-            <div class="editor-section-title" style="margin-bottom:12px">Элементы для сортировки</div>
-            <div id="sort-items" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-            <div class="add-item-row">
-              <div style="flex:1;display:flex;flex-direction:column;gap:8px">
-                <input class="input-field" id="sort-item-text" placeholder="Текст элемента">
-                <div id="sort-item-img-p"></div>
-                <button class="btn btn-ghost btn-sm" id="sort-item-img-btn">+ Картинка</button>
-                <select class="input-field select-field" id="sort-item-cat">
-                  <option value="">Правильная категория...</option>
-                  ${c.categories.map(cat => `<option value="${escHtml(cat)}">${escHtml(cat)}</option>`).join('')}
-                </select>
-              </div>
-              <button class="btn btn-primary" id="sort-add-item" style="align-self:flex-end">Добавить</button>
+
+          <!-- Элементы -->
+          <div class="editor-section-title" style="margin-top:16px;margin-bottom:12px">Элементы для сортировки</div>
+          <div id="sort-items" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px"></div>
+
+          <div class="add-item-row">
+            <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+              <input class="input-field" id="sort-item-text" placeholder="Текст элемента (необязательно)">
+              <div id="sort-item-img-p"></div>
+              <button class="btn btn-ghost btn-sm" id="sort-item-img-btn">🖼 Картинка к элементу</button>
+              <select class="input-field select-field" id="sort-item-cat">
+                <option value="">Правильная корзина...</option>
+                ${c.categories.map(cat => `<option value="${escHtml(cat.name)}">${escHtml(cat.name)}</option>`).join('')}
+              </select>
             </div>
+            <button class="btn btn-primary" id="sort-add-item" style="align-self:flex-end">Добавить</button>
           </div>
         </div>`;
 
       let newItemImg = '';
 
+      // Клик на картинку категории
+      document.querySelectorAll('[data-cat-img-btn]').forEach(wrap => {
+        wrap.addEventListener('click', () => {
+          const i = +wrap.dataset.catImgBtn;
+          pickImage((path, data) => {
+            c.categories[i].img = path;
+            wrap.innerHTML = `<img src="${data}" style="width:100%;height:100%;object-fit:cover">`;
+          });
+        });
+      });
+
       document.getElementById('sort-item-img-btn').addEventListener('click', () => pickImage((p, d) => {
         newItemImg = p;
-        document.getElementById('sort-item-img-p').innerHTML = `<img src="${d}" style="max-height:70px;border-radius:6px">`;
+        document.getElementById('sort-item-img-p').innerHTML =
+          `<img src="${d}" style="max-height:70px;border-radius:6px">`;
       }));
 
       document.getElementById('sort-add-cat').addEventListener('click', () => {
         const val = document.getElementById('sort-new-cat').value.trim();
-        if (val && !c.categories.includes(val)) { c.categories.push(val); render(); }
+        if (!val) { toast('Введите название корзины', 'error'); return; }
+        if (c.categories.some(cat => cat.name === val)) { toast('Такая корзина уже есть', 'error'); return; }
+        c.categories.push({ name: val, img: '' });
+        render();
       });
 
-      // Bind delete-category buttons
       document.querySelectorAll('.sort-del-cat').forEach(btn => {
-        btn.addEventListener('click', () => { c.categories.splice(+btn.dataset.i, 1); render(); });
+        btn.addEventListener('click', () => {
+          const name = c.categories[+btn.dataset.i].name;
+          // Удаляем элементы этой категории
+          c.items = c.items.filter(it => it.category !== name);
+          c.categories.splice(+btn.dataset.i, 1);
+          render();
+        });
       });
 
       document.getElementById('sort-add-item').addEventListener('click', () => {
         const text = document.getElementById('sort-item-text').value.trim();
         const cat  = document.getElementById('sort-item-cat').value;
-        if (!text && !newItemImg) { toast('Введите элемент', 'error'); return; }
-        if (!cat) { toast('Выберите категорию', 'error'); return; }
+        if (!text && !newItemImg) { toast('Введите текст или добавьте картинку', 'error'); return; }
+        if (!cat) { toast('Выберите корзину', 'error'); return; }
         c.items.push({ text, img: newItemImg, category: cat });
         newItemImg = '';
         render();
@@ -490,14 +682,23 @@ const EditorTypes = {
     async function renderSortItems() {
       const container = document.getElementById('sort-items');
       if (!container) return;
+      if (!c.items.length) {
+        container.innerHTML = `<div style="color:var(--text-3);font-size:13px">Элементов пока нет</div>`;
+        return;
+      }
       container.innerHTML = c.items.map((it, i) => `
-        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md)">
-          ${it.img ? `<img data-path="${escHtml(it.img)}" class="lazy-img" style="width:36px;height:36px;object-fit:cover;border-radius:6px">` : ''}
-          <span style="font-size:13px;font-weight:500">${escHtml(it.text)||'—'}</span>
-          <span style="font-size:11px;color:var(--indigo);background:var(--indigo-l);padding:2px 8px;border-radius:10px">${escHtml(it.category)}</span>
-          <button class="sort-del-item" data-i="${i}" style="border:none;background:none;cursor:pointer;color:var(--text-3);font-size:16px;line-height:1;margin-left:2px">×</button>
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;
+          background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md)">
+          ${it.img ? `<img data-path="${escHtml(it.img)}" class="lazy-img"
+            style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0">` : ''}
+          <span style="font-size:13px;font-weight:500;flex:1">${escHtml(it.text)||'—'}</span>
+          <span style="font-size:11px;color:var(--indigo);background:var(--indigo-l);
+            padding:2px 8px;border-radius:10px;white-space:nowrap">${escHtml(it.category)}</span>
+          <button class="sort-del-item" data-i="${i}"
+            style="border:none;background:none;cursor:pointer;color:var(--text-3);font-size:16px;
+            line-height:1;margin-left:2px;flex-shrink:0">×</button>
         </div>`).join('');
-      // Bind delete-item buttons
+
       container.querySelectorAll('.sort-del-item').forEach(btn => {
         btn.addEventListener('click', () => { c.items.splice(+btn.dataset.i, 1); render(); });
       });
@@ -507,12 +708,17 @@ const EditorTypes = {
     render();
 
     document.getElementById('editor-sidebar').innerHTML = `
-      <div class="editor-section-title">Подсказка</div>
-      <div style="font-size:13px;color:var(--text-2);line-height:1.6">
-        Сначала добавьте <b>категории</b> (например: Фрукты, Овощи), затем элементы с указанием правильной категории.
+      <div class="editor-section-title">Как работает</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.7">
+        1. Добавьте корзины (категории)<br>
+        2. К каждой корзине можно добавить картинку — она будет видна в плеере<br>
+        3. Добавьте элементы и укажите для каждого правильную корзину
       </div>
       <div class="divider"></div>
-      <div>Категорий: <b>${c.categories.length}</b><br>Элементов: <b>${c.items.length}</b></div>`;
+      <div style="font-size:13px">
+        Корзин: <b>${c.categories.length}</b><br>
+        Элементов: <b>${c.items.length}</b>
+      </div>`;
   },
 };
 
@@ -1096,6 +1302,7 @@ Object.assign(EditorTypes, {
     const hints = {
       sequencing:    ['Порядок имеет значение', 'Добавьте 3–6 элементов с картинками. В плеере они будут перемешаны, задача — восстановить порядок.'],
       memory:        ['Классическая игра', 'Карточки раскладываются рубашкой вниз. Нужно найти все одинаковые пары.'],
+      find_pairs:    ['Соедини линиями', 'Правый столбец перемешивается. Ученик нажимает объект слева, затем его пару справа — они соединяются линией. Добавьте 3–7 пар.'],
       whats_missing: ['Тренировка памяти', 'Ребёнок видит все предметы несколько секунд, затем один исчезает. Задача — назвать, что пропало.'],
       counting:      ['Счёт предметов', 'Показывается картинка, нужно выбрать правильное число. Задайте диапазон вариантов ответа.'],
       categories:    ['Классификация', 'Ребёнок перетаскивает предметы в нужные группы. Хорошо для изучения категорий.'],
@@ -1126,54 +1333,179 @@ Object.assign(EditorTypes, {
   pattern(editor) {
     const c = editor._content;
     if (!c.sequences) c.sequences = [];
+    if (!c.mode) c.mode = 'text';
     const container = editor._bodyEl;
 
     function render() {
+      const isImg = c.mode === 'image';
       container.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Ряды (числа или символы)</label>
+        <div style="max-width:700px">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <div style="font-size:13.5px;font-weight:600;color:var(--text-2)">Режим:</div>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="pat-mode" value="text" ${!isImg ? 'checked' : ''}> Текст / числа
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px">
+              <input type="radio" name="pat-mode" value="image" ${isImg ? 'checked' : ''}> Картинки
+            </label>
+          </div>
           <div id="pat-list"></div>
           <button class="btn btn-ghost btn-sm" id="pat-add" style="margin-top:10px">+ Добавить ряд</button>
         </div>`;
 
-      const list = container.querySelector('#pat-list');
-      c.sequences.forEach((seq, si) => {
-        const div = document.createElement('div');
-        div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-lg);padding:16px;margin-bottom:12px;position:relative';
-        div.innerHTML = `
-          <button class="item-delete" data-si="${si}" style="opacity:1;position:absolute;top:10px;right:10px">✕</button>
-          <div class="form-group">
-            <label class="form-label" style="font-size:12px">Ряд (через запятую): <span style="color:var(--text-3)">напр. 1,2,3,4</span></label>
-            <input class="input-field pat-items" data-si="${si}" value="${escHtml((seq.items||[]).join(','))}" placeholder="1, 2, 3, 4">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="font-size:12px">Варианты ответа (через запятую)</label>
-            <input class="input-field pat-opts" data-si="${si}" value="${escHtml((seq.options||[]).join(','))}" placeholder="5, 6, 7">
-          </div>
-          <div class="form-group">
-            <label class="form-label" style="font-size:12px">Правильный вариант (индекс из вариантов, начиная с 0)</label>
-            <input class="input-field" type="number" min="0" max="9" data-si="${si}" class="pat-ans" value="${seq.answer ?? 0}" style="width:80px">
-          </div>`;
-        list.appendChild(div);
-        div.querySelector('.pat-items').addEventListener('input', e => {
-          c.sequences[si].items = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
-        });
-        div.querySelector('.pat-opts').addEventListener('input', e => {
-          c.sequences[si].options = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
-        });
-        div.querySelector('[type=number]').addEventListener('input', e => {
-          c.sequences[si].answer = parseInt(e.target.value) || 0;
-        });
-        div.querySelector('.item-delete').addEventListener('click', () => {
-          c.sequences.splice(si, 1); render();
-        });
+      container.querySelectorAll('input[name=pat-mode]').forEach(r => {
+        r.addEventListener('change', e => { c.mode = e.target.value; render(); });
       });
 
-      container.querySelector('#pat-add').addEventListener('click', () => {
-        c.sequences.push({ items: ['1','2','3'], options: ['4','5','6'], answer: 0 });
-        render();
-      });
+      const list = container.querySelector('#pat-list');
+
+      if (!isImg) {
+        // ── Текстовый режим ───────────────────────────────────────────────────
+        c.sequences.forEach((seq, si) => {
+          const div = document.createElement('div');
+          div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-lg);padding:16px;margin-bottom:12px;position:relative';
+          div.innerHTML = `
+            <button class="item-delete" data-si="${si}" style="opacity:1;position:absolute;top:10px;right:10px">✕</button>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px">Ряд (через запятую): <span style="color:var(--text-3)">напр. 1,2,3,4</span></label>
+              <input class="input-field pat-items" data-si="${si}" value="${escHtml((seq.items||[]).join(','))}" placeholder="1, 2, 3, 4">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px">Варианты ответа (через запятую)</label>
+              <input class="input-field pat-opts" data-si="${si}" value="${escHtml((seq.options||[]).join(','))}" placeholder="5, 6, 7">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="font-size:12px">Правильный вариант (индекс из вариантов, начиная с 0)</label>
+              <input class="input-field" type="number" min="0" max="9" data-si="${si}" value="${seq.answer ?? 0}" style="width:80px">
+            </div>`;
+          list.appendChild(div);
+          div.querySelector('.pat-items').addEventListener('input', e => {
+            c.sequences[si].items = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+          });
+          div.querySelector('.pat-opts').addEventListener('input', e => {
+            c.sequences[si].options = e.target.value.split(',').map(s=>s.trim()).filter(Boolean);
+          });
+          div.querySelector('[type=number]').addEventListener('input', e => {
+            c.sequences[si].answer = parseInt(e.target.value) || 0;
+          });
+          div.querySelector('.item-delete').addEventListener('click', () => {
+            c.sequences.splice(si, 1); render();
+          });
+        });
+        container.querySelector('#pat-add').addEventListener('click', () => {
+          c.sequences.push({ items: ['1','2','3'], options: ['4','5','6'], answer: 0 });
+          render();
+        });
+
+      } else {
+        // ── Режим картинок ────────────────────────────────────────────────────
+        c.sequences.forEach((seq, si) => {
+          if (!seq.items) seq.items = [];
+          if (!seq.options) seq.options = [];
+          if (seq.gap_index == null) seq.gap_index = seq.items.length - 1;
+
+          const div = document.createElement('div');
+          div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-lg);padding:16px;margin-bottom:14px;position:relative';
+          div.innerHTML = `
+            <button class="item-delete pat-del-seq" data-si="${si}" style="opacity:1;position:absolute;top:10px;right:10px">✕</button>
+            <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:10px">РЯД ${si + 1}</div>
+
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:6px">
+              Элементы ряда — <span style="color:var(--rose)">один будет скрыт (пропуск)</span>:
+            </div>
+            <div class="pat-img-items" data-si="${si}" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
+            <button class="btn btn-ghost btn-sm pat-add-item" data-si="${si}">+ Добавить элемент ряда</button>
+
+            <div style="font-size:12px;color:var(--text-3);margin:12px 0 6px">Варианты ответа (какой из них правильный?):</div>
+            <div class="pat-img-opts" data-si="${si}" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+            <button class="btn btn-ghost btn-sm pat-add-opt" data-si="${si}">+ Добавить вариант</button>
+
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <label style="font-size:12px;color:var(--text-2)">Индекс пропуска (0 = первый):</label>
+              <input class="input-field pat-gap" data-si="${si}" type="number" min="0" value="${seq.gap_index}" style="width:70px">
+              <label style="font-size:12px;color:var(--text-2)">Правильный вариант (индекс, 0 = первый):</label>
+              <input class="input-field pat-ans-img" data-si="${si}" type="number" min="0" value="${seq.answer ?? 0}" style="width:70px">
+            </div>`;
+          list.appendChild(div);
+
+          // Render item thumbnails
+          function renderImgItems() {
+            const wrap = div.querySelector('.pat-img-items');
+            wrap.innerHTML = (seq.items || []).map((it, ii) => `
+              <div style="position:relative;text-align:center">
+                ${it.img ? `<img data-path="${escHtml(it.img)}" class="lazy-img" style="height:60px;border-radius:6px;display:block">` : '<div style="width:60px;height:60px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
+                <div style="font-size:11px;color:var(--text-2);margin-top:2px">${escHtml(it.label||'')}</div>
+                <button class="pat-rm-item" data-si="${si}" data-ii="${ii}"
+                  style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--rose);color:#fff;border:none;cursor:pointer;font-size:10px;line-height:18px;text-align:center">✕</button>
+                <button class="btn btn-ghost" data-si="${si}" data-ii="${ii}" style="font-size:10px;padding:2px 6px;margin-top:2px" class="pat-edit-item">🖼</button>
+              </div>`).join('');
+            wrap.querySelectorAll('.pat-rm-item').forEach(b => {
+              b.onclick = () => { seq.items.splice(+b.dataset.ii, 1); renderImgItems(); };
+            });
+            wrap.querySelectorAll('button:not(.pat-rm-item)').forEach(b => {
+              b.onclick = () => pickImage((p, d) => {
+                seq.items[+b.dataset.ii].img = p;
+                renderImgItems();
+              });
+            });
+            loadLazyImages(wrap);
+          }
+
+          function renderImgOpts() {
+            const wrap = div.querySelector('.pat-img-opts');
+            wrap.innerHTML = (seq.options || []).map((op, oi) => `
+              <div style="position:relative;text-align:center">
+                ${op.img ? `<img data-path="${escHtml(op.img)}" class="lazy-img" style="height:60px;border-radius:6px;display:block">` : '<div style="width:60px;height:60px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
+                <div style="font-size:11px;color:var(--text-2);margin-top:2px">${escHtml(op.label||'')}</div>
+                <button class="pat-rm-opt" data-si="${si}" data-oi="${oi}"
+                  style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--rose);color:#fff;border:none;cursor:pointer;font-size:10px;line-height:18px;text-align:center">✕</button>
+                <button class="pat-edit-opt" data-si="${si}" data-oi="${oi}" style="font-size:10px;padding:2px 6px;margin-top:2px">🖼</button>
+              </div>`).join('');
+            wrap.querySelectorAll('.pat-rm-opt').forEach(b => {
+              b.onclick = () => { seq.options.splice(+b.dataset.oi, 1); renderImgOpts(); };
+            });
+            wrap.querySelectorAll('.pat-edit-opt').forEach(b => {
+              b.onclick = () => pickImage((p, d) => {
+                seq.options[+b.dataset.oi].img = p;
+                renderImgOpts();
+              });
+            });
+            loadLazyImages(wrap);
+          }
+
+          renderImgItems();
+          renderImgOpts();
+
+          div.querySelector('.pat-add-item').onclick = () => {
+            pickImage((p, d) => {
+              seq.items.push({ img: p, label: '' });
+              renderImgItems();
+            });
+          };
+          div.querySelector('.pat-add-opt').onclick = () => {
+            pickImage((p, d) => {
+              seq.options.push({ img: p, label: '' });
+              renderImgOpts();
+            });
+          };
+          div.querySelector('.pat-gap').addEventListener('input', e => {
+            seq.gap_index = parseInt(e.target.value) || 0;
+          });
+          div.querySelector('.pat-ans-img').addEventListener('input', e => {
+            seq.answer = parseInt(e.target.value) || 0;
+          });
+          div.querySelector('.pat-del-seq').addEventListener('click', () => {
+            c.sequences.splice(si, 1); render();
+          });
+        });
+
+        container.querySelector('#pat-add').addEventListener('click', () => {
+          c.sequences.push({ items: [], gap_index: 0, options: [], answer: 0 });
+          render();
+        });
+      }
     }
+
     render();
     EditorTypes._sidebarHint('pattern');
   },
@@ -1283,7 +1615,6 @@ Object.assign(EditorTypes, {
           task.pics.push({ image: p||'', text:'', correct: task.pics.length===0 });
           render();
         });
-        div.querySelector('.item-delete').addEventListener('click', () => { c.items.splice(ti,1); render(); });
       });
 
       container.querySelector('#wtp-add').addEventListener('click', () => {
@@ -1581,6 +1912,7 @@ Object.assign(EditorTypes, {
     const base = {
       visual_match: () => EditorTypes.visualMatch(this),
       find_pairs:   () => EditorTypes.findPairs(this),
+      memory_game:  () => EditorTypes.memory_game(this),
       odd_one_out:  () => EditorTypes.oddOneOut(this),
       sorting:      () => EditorTypes.sorting(this),
     };
