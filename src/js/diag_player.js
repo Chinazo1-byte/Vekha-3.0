@@ -1656,15 +1656,16 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
 
   // БЛОК: Подшкалы
   let blockSubs = '';
-  if (Object.keys(subscaleScores).length && interp?.subscaleRanges) {
+  if (Object.keys(subscaleScores).length) {
+    const hasSubRanges = !!(interp?.subscaleRanges);
     const subRows = Object.entries(subscaleScores).map(([subId, val]) => {
       const subName   = subById[subId] || subId;
-      const subRanges = interp.subscaleRanges?.[subId] || [];
-      const subRange  = findRange(subRanges, val);
+      const subRanges = hasSubRanges ? (interp.subscaleRanges[subId] || []) : [];
+      const subRange  = subRanges.length ? findRange(subRanges, val) : null;
       const slc       = LC[subRange?.level || 'none'] || LC.none;
-      const { min: sn, max: sx } = scoreRange(subRanges);
+      const { min: sn, max: sx } = subRanges.length ? scoreRange(subRanges) : { min: 0, max: val || 1 };
       const sp        = pct(val, sn, sx);
-      return { subId, subName, val, sn, sx, sp, subRange, slc };
+      return { subId, subName, val, sn, sx, sp, subRange, slc, hasRanges: subRanges.length > 0 };
     });
     blockSubs = `
       <div class="rc-card" style="animation-delay:.20s">
@@ -1677,15 +1678,16 @@ async function showV2Result(overlay, diag, data, total, subscaleScores, summary,
             <div>
               <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
                 <span style="font-size:13px;font-weight:700;color:var(--text-1);flex:1">${escHtml(s.subName)}</span>
-                <span style="font-size:14px;font-weight:800;color:${s.slc.col}">${s.val} / ${s.sx}</span>
-                <span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;
-                      background:${s.slc.bg};color:${s.slc.col};border:1px solid ${s.slc.border}">${s.slc.label}</span>
+                <span style="font-size:14px;font-weight:800;color:${s.slc.col}">${s.val}${s.hasRanges ? ' / ' + s.sx : ''}</span>
+                ${s.hasRanges ? `<span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;
+                      background:${s.slc.bg};color:${s.slc.col};border:1px solid ${s.slc.border}">${s.slc.label}</span>` : ''}
               </div>
+              ${s.hasRanges ? `
               <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin-bottom:6px">
                 <div class="rc-sub-bar" data-pct="${s.sp}" data-col="${s.slc.col}"
                      style="height:100%;width:0%;background:${s.slc.col};border-radius:3px;
                             transition:width .7s cubic-bezier(.4,0,.2,1) ${.25+si*.08}s"></div>
-              </div>
+              </div>` : ''}
               ${s.subRange?.label ? `<div style="font-size:12.5px;color:var(--text-3);line-height:1.55">${escHtml(s.subRange.label.split('\n')[0])}</div>` : ''}
               ${s.subRange?.desc?.trim() ? `<div style="font-size:12.5px;color:var(--text-2);line-height:1.65;margin-top:5px">${s.subRange.desc.trim().split('\n').map(l => escHtml(l)).join('<br>')}</div>` : ''}
             </div>`).join('')}

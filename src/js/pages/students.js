@@ -361,14 +361,7 @@ async function openStudentProfile(id) {
 }
 
 // ── Хелпер склонения ──────────────────────────────────────────────────────────
-function plural(n, one, few, many) {
-  const m  = Math.abs(n) % 100;
-  const m1 = m % 10;
-  if (m >= 11 && m <= 19) return many;
-  if (m1 === 1) return one;
-  if (m1 >= 2 && m1 <= 4) return few;
-  return many;
-}
+
 
 // ── Экспорт PDF ───────────────────────────────────────────────────────────────
 async function exportStudentPdf(studentId, profileEl) {

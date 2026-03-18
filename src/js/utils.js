@@ -172,6 +172,15 @@ document.addEventListener('click', e => {
 });
 
 // ── Мелкие хелперы ───────────────────────────────────────────────────────────
+function plural(n, one, few, many) {
+  const m  = Math.abs(n) % 100;
+  const m1 = m % 10;
+  if (m >= 11 && m <= 19) return many;
+  if (m1 === 1) return one;
+  if (m1 >= 2 && m1 <= 4) return few;
+  return many;
+}
+
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

@@ -507,6 +507,7 @@ const SpTypes = {
     const t0 = Date.now();
 
     async function render() {
+      if (!container.isConnected) return;
       container.innerHTML = `
         <div class="player-body">
           <div class="player-card">
@@ -522,7 +523,9 @@ const SpTypes = {
           </div>
         </div>`;
 
+      if (!container.isConnected) return;
       await loadPlayerImages(container);
+      if (!container.isConnected) return;
 
       container.querySelectorAll('.pair-card:not(.matched)').forEach(card => {
         card.addEventListener('click', async () => {
@@ -687,6 +690,7 @@ const SpTypes = {
     const t0 = Date.now();
 
     async function render() {
+      if (!container.isConnected) return;
       if (idx >= shuffled.length) {
         onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now()-t0)/1000) });
         return;
@@ -711,7 +715,9 @@ const SpTypes = {
           </div>
         </div>`;
 
+      if (!container.isConnected) return;
       await loadPlayerImages(container);
+      if (!container.isConnected) return;
       container.querySelectorAll('.player-opt').forEach(opt => {
         opt.addEventListener('click', () => {
           const ok = opt.dataset.odd === 'true';
@@ -941,6 +947,7 @@ Object.assign(SpTypes, {
     const t0 = Date.now();
 
     async function render() {
+      if (!container.isConnected) return;
       container.innerHTML = `
         <div class="player-body" style="overflow-y:auto">
           <div class="player-card" style="max-width:840px;width:100%">
@@ -975,7 +982,9 @@ Object.assign(SpTypes, {
             </div>
           </div>
         </div>`;
+      if (!container.isConnected) return;
       await loadPlayerImages(container);
+      if (!container.isConnected) return;
 
       container.querySelectorAll('.seq-opt').forEach(opt => opt.addEventListener('click', () => { selected.push(+opt.dataset.orig); render(); }));
       container.querySelectorAll('.seq-placed').forEach(p => p.addEventListener('click', () => { selected.splice(+p.dataset.pos,1); render(); }));
@@ -1033,6 +1042,7 @@ Object.assign(SpTypes, {
     const t0       = Date.now();
 
     async function render() {
+      if (!container.isConnected) return;
       container.innerHTML = `
         <div class="player-body" style="overflow-y:auto">
           <div class="player-card" style="max-width:840px;width:100%">
@@ -1057,7 +1067,9 @@ Object.assign(SpTypes, {
             <div style="text-align:center"><button class="btn btn-primary" id="so-check">Проверить →</button></div>
           </div>
         </div>`;
+      if (!container.isConnected) return;
       await loadPlayerImages(container);
+      if (!container.isConnected) return;
 
       // Тап: выбрать первый → второй → swap
       container.querySelectorAll('.so-item').forEach(el => {

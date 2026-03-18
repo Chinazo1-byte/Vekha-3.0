@@ -425,6 +425,7 @@ const PlayerTypes = {
     const startTime = Date.now();
 
     async function render() {
+      if (!player._el) return;
       player._el.innerHTML = playerTopbar(ex.name, matched.size / 2, pairs.length) + `
         <div class="player-body">
           <div class="player-card">
@@ -441,7 +442,9 @@ const PlayerTypes = {
         </div>`;
 
       bindCloseBtn(player._el);
+      if (!player._el) return;
       await loadPlayerImages(player._el);
+      if (!player._el) return;
 
       player._el.querySelectorAll('.pair-card:not(.matched)').forEach(card => {
         card.addEventListener('click', async () => {
@@ -456,6 +459,7 @@ const PlayerTypes = {
             ? `<img data-path="${escHtml(cardData.img)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`
             : `<span style="font-size:15px;font-weight:600">${escHtml(cardData.text || '')}</span>`;
           await loadPlayerImages(card.parentElement);
+          if (!player._el) return;
 
           if (flipped.length === 2) {
             locked       = true;
@@ -667,6 +671,7 @@ const PlayerTypes = {
     const startTime = Date.now();
 
     async function render() {
+      if (!player._el) return;
       if (idx >= shuffled.length) {
         const dur = Math.round((Date.now() - startTime) / 1000);
         player._saveResult(studentId, ex.id, correct, shuffled.length, [], dur);
@@ -695,7 +700,9 @@ const PlayerTypes = {
         </div>`;
 
       bindCloseBtn(player._el);
+      if (!player._el) return;
       await loadPlayerImages(player._el);
+      if (!player._el) return;
 
       player._el.querySelectorAll('.player-opt').forEach(opt => {
         opt.addEventListener('click', () => {

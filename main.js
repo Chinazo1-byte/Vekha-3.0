@@ -256,14 +256,17 @@ ipcMain.handle('exercises:get', (_, id) =>
     FROM exercises e LEFT JOIN categories c ON e.category_id = c.id WHERE e.id=?`, [id])
 );
 ipcMain.handle('exercises:create', (_, d) => {
+  // content может прийти строкой (из БД при импорте) или объектом (из редактора) — нормализуем
+  const contentStr = typeof d.content === 'string' ? d.content : JSON.stringify(d.content || {});
   const r = run('INSERT INTO exercises (name, type, difficulty, category_id, content) VALUES (?,?,?,?,?)',
-    [d.name, d.type, d.difficulty||'medium', d.category_id||null, JSON.stringify(d.content||{})]);
+    [d.name, d.type, d.difficulty||'medium', d.category_id||null, contentStr]);
   return { id: r.lastInsertRowid, ...d };
 });
 ipcMain.handle('exercises:update', (_, d) => {
+  const contentStr = typeof d.content === 'string' ? d.content : JSON.stringify(d.content || {});
   run(`UPDATE exercises SET name=?, type=?, difficulty=?, category_id=?, content=?,
     updated_at=datetime('now') WHERE id=?`,
-    [d.name, d.type, d.difficulty||'medium', d.category_id||null, JSON.stringify(d.content||{}), d.id]);
+    [d.name, d.type, d.difficulty||'medium', d.category_id||null, contentStr, d.id]);
   return d;
 });
 ipcMain.handle('exercises:delete', (_, id) => {
@@ -371,11 +374,12 @@ ipcMain.handle('files:pickJson', async () => {
 
 // ── IPC — Результаты упражнений ──────────────────────────────────────────────
 ipcMain.handle('exercises:saveResult', (_, d) => {
+  const answersStr = typeof d.answers === 'string' ? d.answers : JSON.stringify(d.answers || []);
   run(`INSERT INTO exercise_results
     (student_id, exercise_id, score, correct, total, duration_sec, answers, completed_at)
     VALUES (?,?,?,?,?,?,?,datetime('now'))`,
     [d.student_id||null, d.exercise_id||null, d.score||'', d.correct||0,
-     d.total||0, d.duration_sec||0, JSON.stringify(d.answers||[])]);
+     d.total||0, d.duration_sec||0, answersStr]);
   return { ok: true };
 });
 
@@ -506,9 +510,43 @@ ipcMain.handle('settings:set', (_, key, value) => {
   return true;
 });
 
+ipcMain.handle('files:saveImageData', (_, dataUrl, idx) => {
+  // Принимает data URL, сохраняет файл в папку images, возвращает путь
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  const mime = m[1];
+  const ext  = mime.split('/')[1].replace('jpeg','jpg').replace('svg+xml','svg');
+  const dir  = path.join(app.getPath('userData'), 'images');
+  fs.mkdirSync(dir, { recursive: true });
+  const dest = path.join(dir, `${Date.now()}_${idx || 0}_imported.${ext}`);
+  fs.writeFileSync(dest, Buffer.from(m[2], 'base64'));
+  return dest;
+});
+
 // ── Экспорт библиотеки упражнений и цепочек ──────────────────────────────────
 ipcMain.handle('library:export', async (_, data) => {
   const { dialog } = require('electron');
+
+  // Собрать все уникальные пути к картинкам из content всех упражнений
+  // и встроить их как base64 в словарь images: { "C:\...\photo.jpg": "data:image/jpeg;base64,..." }
+  const images = {};
+  for (const ex of (data.exercises || [])) {
+    const contentStr = typeof ex.content === 'string' ? ex.content : JSON.stringify(ex.content || {});
+    // Ищем строки в JSON, похожие на абсолютные пути (содержат / или \ и расширение изображения)
+    const matches = contentStr.match(/"([^"]+\.(?:png|jpg|jpeg|gif|webp|svg))"/gi) || [];
+    for (const m of matches) {
+      const p = m.slice(1, -1); // убрать кавычки
+      if (!images[p] && !p.startsWith('data:') && fs.existsSync(p)) {
+        try {
+          const ext  = path.extname(p).slice(1).toLowerCase();
+          const mime = ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+          images[p] = `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+        } catch(e) { /* пропустить нечитаемый файл */ }
+      }
+    }
+  }
+  data.images = images;
+
   const result = await dialog.showSaveDialog(mainWin, {
     title: 'Сохранить библиотеку',
     defaultPath: `vekha_library_${new Date().toISOString().slice(0,10)}.json`,
@@ -516,7 +554,8 @@ ipcMain.handle('library:export', async (_, data) => {
   });
   if (result.canceled || !result.filePath) return { canceled: true };
   fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf8');
-  return { ok: true, path: result.filePath };
+  const imgCount = Object.keys(images).length;
+  return { ok: true, path: result.filePath, imgCount };
 });
 
 ipcMain.handle('library:import', async () => {

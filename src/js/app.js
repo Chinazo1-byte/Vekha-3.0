@@ -130,13 +130,38 @@ async function importLibrary() {
         let addedEx = 0, addedSes = 0, addedDiag = 0;
         const idMap = {};
 
+        // Восстановить картинки: сохранить каждую base64-картинку на диск,
+        // построить словарь старый_путь → новый_путь
+        const pathMap = {};
+        const embeddedImages = data.images || {};
+        let imgIdx = 0;
+        for (const [oldPath, dataUrl] of Object.entries(embeddedImages)) {
+          const newPath = await window.db.files.saveImageData(dataUrl, imgIdx++);
+          if (newPath) pathMap[oldPath] = newPath;
+        }
+
+        // Заменить старые пути на новые в строке content
+        function rewritePaths(contentStr) {
+          if (!contentStr || typeof contentStr !== 'string') return contentStr;
+          let s = contentStr;
+          for (const [oldP, newP] of Object.entries(pathMap)) {
+            // JSON-escape обоих путей для безопасной замены внутри строки JSON
+            s = s.split(JSON.stringify(oldP).slice(1,-1)).join(JSON.stringify(newP).slice(1,-1));
+          }
+          return s;
+        }
+
         for (const ex of (data.exercises || [])) {
-          const oldId   = ex.id;
+          const oldId = ex.id;
+          // content из файла — уже строка; rewritePaths обновит пути к картинкам
+          const contentStr = rewritePaths(
+            typeof ex.content === 'string' ? ex.content : JSON.stringify(ex.content || {})
+          );
           const created = await window.db.exercises.create({
             name:       ex.name + ' (импорт)',
             type:       ex.type,
             difficulty: ex.difficulty || 'medium',
-            content:    ex.content || '{}',
+            content:    contentStr,
           });
           idMap[oldId] = created.id;
           addedEx++;
