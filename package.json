@@ -1,6 +1,6 @@
 {
   "name": "vekha",
-  "version": "1.1.0",
+  "version": "1.0.1",
   "description": "Веха — конструктор занятий для педагогов",
   "main": "main.js",
   "scripts": {
@@ -39,7 +39,9 @@
       "node_modules/**/*"
     ],
     "publish": {
-      "provider": "github"
+      "provider": "github",
+      "owner": "Chinazo1-byte",
+      "repo": "Vekha-3.0"
     },
     "win": {
       "target": [
