@@ -86,6 +86,7 @@ async function initSettingsPage() {
           <div class="settings-btn-row">
             <button class="btn btn-secondary btn-sm" id="set-check-update">Проверить</button>
             <button class="btn btn-primary btn-sm" id="set-install-update" style="display:none">Установить</button>
+            <button class="btn btn-ghost btn-sm" id="set-show-log" style="display:none">Лог</button>
           </div>
         </div>
       </div>
@@ -146,10 +147,20 @@ async function initSettingsPage() {
     if (msg === 'unavailable') {
       setStatus('Обновления доступны только в установленной версии');
     } else {
-      setStatus('Ошибка проверки обновлений');
+      setStatus(`Ошибка: ${msg}`);
       console.warn('[updater]', msg);
     }
     if (checkBtn) { checkBtn.textContent = 'Повторить'; checkBtn.disabled = false; }
+    // Показать кнопку лога при ошибке
+    const logBtn = document.getElementById('set-show-log');
+    if (logBtn) logBtn.style.display = '';
+  });
+
+  document.getElementById('set-show-log')?.addEventListener('click', async () => {
+    const log = await window.db.updater.getLog();
+    Modal.open('Лог обновлений',
+      `<pre style="font-size:11px;line-height:1.5;color:var(--text-2);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto">${escHtml(log)}</pre>`
+    );
   });
 
   checkBtn?.addEventListener('click', () => {

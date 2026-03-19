@@ -11,7 +11,25 @@ permissions:
 
 jobs:
 
+  # ── Шаг 1: создать черновик релиза ─────────────────────────────────────────
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create.outputs.upload_url }}
+    steps:
+      - name: Create GitHub Release
+        id: create
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Шаг 2a: сборка Windows ─────────────────────────────────────────────────
   build-windows:
+    needs: create-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +46,6 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # electron-builder определит owner/repo из этой переменной автоматически
-          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -39,7 +55,9 @@ jobs:
             dist/*.exe
             dist/latest.yml
 
+  # ── Шаг 2b: сборка Linux ───────────────────────────────────────────────────
   build-linux:
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +78,6 @@ jobs:
         run: npm run release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4

@@ -11,7 +11,15 @@ try {
     autoUpdater = require('electron-updater').autoUpdater;
     autoUpdater.autoDownload         = false;
     autoUpdater.autoInstallOnAppQuit = true;
-    autoUpdater.logger               = null;
+
+    // Логируем в файл рядом с БД — помогает диагностировать проблемы
+    const logPath = path.join(app.getPath('userData'), 'updater.log');
+    autoUpdater.logger = {
+      info:  msg => fs.appendFileSync(logPath, `[INFO]  ${new Date().toISOString()} ${msg}\n`),
+      warn:  msg => fs.appendFileSync(logPath, `[WARN]  ${new Date().toISOString()} ${msg}\n`),
+      error: msg => fs.appendFileSync(logPath, `[ERROR] ${new Date().toISOString()} ${msg}\n`),
+      debug: ()  => {},
+    };
   }
 } catch(e) { /* electron-updater не установлен — ничего страшного */ }
 
@@ -559,6 +567,12 @@ ipcMain.handle('updater:download', () => {
   return autoUpdater.downloadUpdate().catch(e => {
     mainWin?.webContents.send('updater:error', e.message);
   });
+});
+ipcMain.handle('updater:getLog', () => {
+  try {
+    const logPath = path.join(app.getPath('userData'), 'updater.log');
+    return fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8').slice(-3000) : '(лог пуст)';
+  } catch(e) { return e.message; }
 });
 ipcMain.handle('updater:install',  () => {
   if (autoUpdater) autoUpdater.quitAndInstall();

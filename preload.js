@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('db', {
     check:    ()   => api('updater:check'),
     download: ()   => api('updater:download'),
     install:  ()   => api('updater:install'),
+    getLog:   ()   => api('updater:getLog'),
     onAvailable:    (cb) => ipcRenderer.on('updater:available',     (_, v) => cb(v)),
     onNotAvailable: (cb) => ipcRenderer.on('updater:not-available', ()     => cb()),
     onProgress:     (cb) => ipcRenderer.on('updater:progress',      (_, v) => cb(v)),

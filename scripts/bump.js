@@ -50,17 +50,32 @@ if (!['patch', 'minor', 'major'].includes(type)) {
 const pkgPath = path.join(__dirname, '..', 'package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 
-const [maj, min, pat] = pkg.version.split('.').map(Number);
+const git = findGit();
+
+// Читаем последний тег из git — он всегда актуальнее чем package.json
+let currentVersion = pkg.version;
+try {
+  const lastTag = execSync(`${git} describe --tags --abbrev=0`, { encoding: 'utf8' }).trim();
+  if (lastTag.startsWith('v')) {
+    currentVersion = lastTag.slice(1);
+    if (currentVersion !== pkg.version) {
+      console.log(`Git тег: v${currentVersion} (package.json был ${pkg.version} — синхронизирую)`);
+    }
+  }
+} catch(e) {
+  console.log(`Git тегов нет — беру версию из package.json: ${currentVersion}`);
+}
+
+const [maj, min, pat] = currentVersion.split('.').map(Number);
 const next = type === 'major' ? `${maj+1}.0.0`
            : type === 'minor' ? `${maj}.${min+1}.0`
            :                    `${maj}.${min}.${pat+1}`;
 
 pkg.version = next;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
-console.log(`Версия: ${pkg.version.replace(next, '')}${next.split('.').slice(0,-1).join('.')}... → v${next}`);
+console.log(`Версия: v${currentVersion} → v${next}`);
 
 // ── Git: commit + tag + push ──────────────────────────────────────────────────
-const git = findGit();
 const run = cmd => execSync(cmd, { stdio: 'inherit' });
 
 try {
