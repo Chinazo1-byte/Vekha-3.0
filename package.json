@@ -1,6 +1,6 @@
 {
   "name": "vekha",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Веха — конструктор занятий для педагогов",
   "author": "Chinazo1-byte",
   "main": "main.js",
@@ -53,7 +53,8 @@
           ]
         }
       ],
-      "icon": "src/assets/logo.jpg"
+      "icon": "src/assets/logo.jpg",
+      "artifactName": "vekha-setup-${version}.exe"
     },
     "linux": {
       "target": [
@@ -65,7 +66,8 @@
         }
       ],
       "icon": "src/assets/logo.png",
-      "category": "Education"
+      "category": "Education",
+      "artifactName": "vekha-${version}.AppImage"
     },
     "nsis": {
       "oneClick": false,
