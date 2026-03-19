@@ -56,7 +56,18 @@ contextBridge.exposeInMainWorld('db', {
     import: ()     => api('library:import'),
   },
   app: {
-    quit: () => api('app:quit'),
+    quit:    () => api('app:quit'),
+    version: () => api('app:version'),
+  },
+  updater: {
+    check:    ()   => api('updater:check'),
+    download: ()   => api('updater:download'),
+    install:  ()   => api('updater:install'),
+    onAvailable:    (cb) => ipcRenderer.on('updater:available',     (_, v) => cb(v)),
+    onNotAvailable: (cb) => ipcRenderer.on('updater:not-available', ()     => cb()),
+    onProgress:     (cb) => ipcRenderer.on('updater:progress',      (_, v) => cb(v)),
+    onDownloaded:   (cb) => ipcRenderer.on('updater:downloaded',    ()     => cb()),
+    onError:        (cb) => ipcRenderer.on('updater:error',         (_, v) => cb(v)),
   },
   settings: {
     get: (key)        => api('settings:get', key),

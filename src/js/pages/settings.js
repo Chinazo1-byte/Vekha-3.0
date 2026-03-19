@@ -70,6 +70,26 @@ async function initSettingsPage() {
         </div>
       </div>
 
+      <div class="settings-section">
+        <div class="settings-section-title">О программе</div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Версия приложения</div>
+            <div class="settings-row-sub" id="set-version">…</div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Обновления</div>
+            <div class="settings-row-sub" id="set-update-status">Проверьте наличие новой версии</div>
+          </div>
+          <div class="settings-btn-row">
+            <button class="btn btn-secondary btn-sm" id="set-check-update">Проверить</button>
+            <button class="btn btn-primary btn-sm" id="set-install-update" style="display:none">Установить</button>
+          </div>
+        </div>
+      </div>
+
     </div>`;
 
   document.getElementById('set-dark').addEventListener('change', async (e) => {
@@ -89,6 +109,49 @@ async function initSettingsPage() {
 
   document.getElementById('set-export').addEventListener('click', () => exportLibrary());
   document.getElementById('set-import').addEventListener('click', () => importLibrary());
+
+  // ── Версия и обновления ───────────────────────────────────────────────────
+  window.db.app.version().then(v => {
+    const el = document.getElementById('set-version');
+    if (el) el.textContent = `Веха v${v}`;
+  }).catch(() => {});
+
+  const statusEl  = document.getElementById('set-update-status');
+  const checkBtn  = document.getElementById('set-check-update');
+  const installBtn = document.getElementById('set-install-update');
+
+  function setStatus(text, busy = false) {
+    if (statusEl) statusEl.textContent = text;
+    if (checkBtn) checkBtn.disabled = busy;
+  }
+
+  // Подписываемся на события от main process (один раз при инициализации страницы)
+  window.db.updater.onAvailable(({ version }) => {
+    setStatus(`Доступна версия ${version} — нажмите «Скачать»`);
+    if (checkBtn)   { checkBtn.textContent = 'Скачать'; checkBtn.disabled = false; checkBtn.onclick = () => { setStatus('Скачиваю…', true); window.db.updater.download(); }; }
+  });
+  window.db.updater.onNotAvailable(() => {
+    setStatus('Установлена последняя версия ✓');
+    if (checkBtn) { checkBtn.textContent = 'Проверить'; checkBtn.disabled = false; }
+  });
+  window.db.updater.onProgress(pct => {
+    setStatus(`Скачиваю… ${pct}%`, true);
+  });
+  window.db.updater.onDownloaded(() => {
+    setStatus('Обновление готово — перезапустите приложение');
+    if (checkBtn)    checkBtn.style.display = 'none';
+    if (installBtn) { installBtn.style.display = ''; installBtn.onclick = () => window.db.updater.install(); }
+  });
+  window.db.updater.onError(msg => {
+    setStatus(`Ошибка проверки обновлений`);
+    console.warn('[updater]', msg);
+    if (checkBtn) { checkBtn.textContent = 'Повторить'; checkBtn.disabled = false; }
+  });
+
+  checkBtn?.addEventListener('click', () => {
+    setStatus('Проверяю…', true);
+    window.db.updater.check();
+  });
 }
 
 Router.register('settings', initSettingsPage);

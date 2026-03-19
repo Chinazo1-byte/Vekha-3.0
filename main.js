@@ -3,6 +3,15 @@ const { buildReportHTML } = require('./report_template');
 const path = require('path');
 const fs   = require('fs');
 
+// ── Auto-updater ──────────────────────────────────────────────────────────────
+let autoUpdater = null;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+  autoUpdater.autoDownload        = false; // скачиваем только по запросу
+  autoUpdater.autoInstallOnAppQuit = true;  // ставим при следующем закрытии
+  autoUpdater.logger = null; // отключить логи в продакшне
+} catch(e) { /* в dev-режиме без electron-updater — ничего страшного */ }
+
 // ── sql.js — чистый JS, без компиляции ──────────────────────────────────────
 let db;
 
@@ -186,6 +195,32 @@ app.whenReady().then(async () => {
   await initDatabase();
   await createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
+  // ── Автообновление: проверяем через 3 сек после запуска ──────────────────
+  if (autoUpdater && !process.argv.includes('--dev')) {
+    autoUpdater.on('update-available', (info) => {
+      mainWin?.webContents.send('updater:available', {
+        version: info.version,
+        releaseNotes: info.releaseNotes || '',
+      });
+    });
+    autoUpdater.on('update-not-available', () => {
+      mainWin?.webContents.send('updater:not-available');
+    });
+    autoUpdater.on('download-progress', (p) => {
+      mainWin?.webContents.send('updater:progress', Math.round(p.percent));
+    });
+    autoUpdater.on('update-downloaded', () => {
+      mainWin?.webContents.send('updater:downloaded');
+    });
+    autoUpdater.on('error', (err) => {
+      mainWin?.webContents.send('updater:error', err.message);
+    });
+
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(() => {});
+    }, 3000);
+  }
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 
@@ -300,8 +335,11 @@ ipcMain.handle('diagnostics:getAll', () =>
   queryAll('SELECT * FROM diagnostics ORDER BY is_builtin DESC, name')
 );
 ipcMain.handle('diagnostics:create', (_, d) => {
+  const qStr = typeof d.questions === 'string'
+    ? d.questions
+    : JSON.stringify(d.questions || []);
   const r = run('INSERT INTO diagnostics (name, description, fill_by, questions) VALUES (?,?,?,?)',
-    [d.name, d.description||'', d.fill_by||'teacher', JSON.stringify(d.questions||[])]);
+    [d.name, d.description||'', d.fill_by||'teacher', qStr]);
   return { id: r.lastInsertRowid, ...d };
 });
 ipcMain.handle('diagnostics:delete', (_, id) => {
@@ -394,8 +432,11 @@ ipcMain.handle('diagnostics:get', (_, id) =>
 );
 
 ipcMain.handle('diagnostics:update', (_, d) => {
+  const qStr = typeof d.questions === 'string'
+    ? d.questions
+    : JSON.stringify(d.questions || []);
   run(`UPDATE diagnostics SET name=?, description=?, fill_by=?, questions=? WHERE id=?`,
-    [d.name, d.description||'', d.fill_by||'teacher', JSON.stringify(d.questions||[]), d.id]);
+    [d.name, d.description||'', d.fill_by||'teacher', qStr, d.id]);
   return d;
 });
 
@@ -496,6 +537,21 @@ ipcMain.handle('window:setMode', async (_, mode) => {
 // ── Выход из приложения ───────────────────────────────────────────────────────
 ipcMain.handle('app:quit', () => {
   app.quit();
+});
+
+ipcMain.handle('app:version', () => app.getVersion());
+
+// ── IPC — Обновления ─────────────────────────────────────────────────────────
+ipcMain.handle('updater:check',    () => {
+  if (!autoUpdater) return { error: 'unavailable' };
+  return autoUpdater.checkForUpdates().catch(e => ({ error: e.message }));
+});
+ipcMain.handle('updater:download', () => {
+  if (!autoUpdater) return null;
+  return autoUpdater.downloadUpdate().catch(e => ({ error: e.message }));
+});
+ipcMain.handle('updater:install',  () => {
+  if (autoUpdater) autoUpdater.quitAndInstall();
 });
 
 // ── Настройки приложения ──────────────────────────────────────────────────────

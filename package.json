@@ -8,10 +8,12 @@
     "dev": "electron . --dev",
     "build": "electron-builder --win --x64 --publish never",
     "build:linux": "electron-builder --linux --x64 --publish never",
-    "build:all": "electron-builder --win --linux --x64 --publish never"
+    "build:all": "electron-builder --win --linux --x64 --publish never",
+    "release": "electron-builder --win --linux --x64 --publish always"
   },
   "dependencies": {
-    "sql.js": "^1.12.0"
+    "sql.js": "^1.12.0",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^29.0.0",
@@ -31,6 +33,11 @@
       "src/**/*",
       "node_modules/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "GITHUB_OWNER",
+      "repo": "GITHUB_REPO"
+    },
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "src/assets/logo.jpg"

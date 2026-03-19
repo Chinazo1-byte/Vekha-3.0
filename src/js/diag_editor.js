@@ -49,7 +49,9 @@ const DiagEditor = {
     this._currentInterpTab = 'total';
 
     try {
-      const raw = JSON.parse(d.questions || 'null');
+      let raw = JSON.parse(d.questions || 'null');
+      // Защита от двойного кодирования: если после парсинга получили строку — парсим ещё раз
+      if (typeof raw === 'string') raw = JSON.parse(raw);
       this._data = (raw && raw.version === 2)
         ? raw
         : { version: 2, elements: [], subscales: [], interpretation: null };
