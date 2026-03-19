@@ -6,11 +6,14 @@ const fs   = require('fs');
 // ── Auto-updater ──────────────────────────────────────────────────────────────
 let autoUpdater = null;
 try {
-  autoUpdater = require('electron-updater').autoUpdater;
-  autoUpdater.autoDownload        = false; // скачиваем только по запросу
-  autoUpdater.autoInstallOnAppQuit = true;  // ставим при следующем закрытии
-  autoUpdater.logger = null; // отключить логи в продакшне
-} catch(e) { /* в dev-режиме без electron-updater — ничего страшного */ }
+  // Работает только в упакованном приложении — не в dev/VS Code
+  if (app.isPackaged) {
+    autoUpdater = require('electron-updater').autoUpdater;
+    autoUpdater.autoDownload         = false;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.logger               = null;
+  }
+} catch(e) { /* electron-updater не установлен — ничего страшного */ }
 
 // ── sql.js — чистый JS, без компиляции ──────────────────────────────────────
 let db;
@@ -542,13 +545,20 @@ ipcMain.handle('app:quit', () => {
 ipcMain.handle('app:version', () => app.getVersion());
 
 // ── IPC — Обновления ─────────────────────────────────────────────────────────
-ipcMain.handle('updater:check',    () => {
-  if (!autoUpdater) return { error: 'unavailable' };
-  return autoUpdater.checkForUpdates().catch(e => ({ error: e.message }));
+ipcMain.handle('updater:check', () => {
+  if (!autoUpdater) {
+    mainWin?.webContents.send('updater:error', 'unavailable');
+    return;
+  }
+  return autoUpdater.checkForUpdates().catch(e => {
+    mainWin?.webContents.send('updater:error', e.message);
+  });
 });
 ipcMain.handle('updater:download', () => {
   if (!autoUpdater) return null;
-  return autoUpdater.downloadUpdate().catch(e => ({ error: e.message }));
+  return autoUpdater.downloadUpdate().catch(e => {
+    mainWin?.webContents.send('updater:error', e.message);
+  });
 });
 ipcMain.handle('updater:install',  () => {
   if (autoUpdater) autoUpdater.quitAndInstall();

@@ -20,16 +20,24 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build Windows
-        run: npm run build
+      - name: Build & publish Windows
+        run: |
+          if ("${{ github.ref }}" -like "refs/tags/*") {
+            npm run release -- --win --x64
+          } else {
+            npm run build
+          }
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows installer
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/latest.yml
 
   build-linux:
     runs-on: ubuntu-latest
@@ -48,16 +56,23 @@ jobs:
           sudo apt-get install -y imagemagick
           convert src/assets/logo.jpg src/assets/logo.png
 
-      - name: Build Linux
-        run: npm run build:linux
+      - name: Build & publish Linux
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            npm run release -- --linux --x64
+          else
+            npm run build:linux
+          fi
         env:
-          LINUX_ICON: src/assets/logo.png
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux AppImage
+      - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
-          path: dist/*.AppImage
+          path: |
+            dist/*.AppImage
+            dist/latest-linux.yml
 
   release:
     needs: [build-windows, build-linux]
@@ -69,11 +84,7 @@ jobs:
       - name: Download all builds
         uses: actions/download-artifact@v4
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            windows-build/*.exe
-            linux-build/*.AppImage
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release assets
+        run: |
+          echo "=== Windows ===" && ls windows-build/
+          echo "=== Linux ===" && ls linux-build/

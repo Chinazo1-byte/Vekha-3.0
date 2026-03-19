@@ -143,8 +143,12 @@ async function initSettingsPage() {
     if (installBtn) { installBtn.style.display = ''; installBtn.onclick = () => window.db.updater.install(); }
   });
   window.db.updater.onError(msg => {
-    setStatus(`Ошибка проверки обновлений`);
-    console.warn('[updater]', msg);
+    if (msg === 'unavailable') {
+      setStatus('Обновления доступны только в установленной версии');
+    } else {
+      setStatus('Ошибка проверки обновлений');
+      console.warn('[updater]', msg);
+    }
     if (checkBtn) { checkBtn.textContent = 'Повторить'; checkBtn.disabled = false; }
   });
 
