@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
 
   build-windows:
@@ -25,6 +28,8 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # electron-builder определит owner/repo из этой переменной автоматически
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -55,6 +60,7 @@ jobs:
         run: npm run release:linux
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
