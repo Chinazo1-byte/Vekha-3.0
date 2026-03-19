@@ -1,6 +1,6 @@
 {
   "name": "vekha",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "Веха — конструктор занятий для педагогов",
   "main": "main.js",
   "scripts": {
@@ -42,25 +42,11 @@
       "provider": "github"
     },
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "src/assets/logo.jpg"
     },
     "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
       "icon": "src/assets/logo.png",
       "category": "Education"
     },

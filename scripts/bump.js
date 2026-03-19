@@ -66,6 +66,15 @@ const run = cmd => execSync(cmd, { stdio: 'inherit' });
 try {
   run(`${git} add package.json`);
   run(`${git} commit -m "chore: release v${next}"`);
+
+  // Если тег уже существует — удалить локально и на remote перед созданием
+  try {
+    execSync(`${git} rev-parse v${next}`, { stdio: 'ignore' });
+    console.log(`Тег v${next} уже существует — перезаписываю...`);
+    try { run(`${git} tag -d v${next}`); } catch(e) {}
+    try { run(`${git} push origin :refs/tags/v${next}`); } catch(e) {}
+  } catch(e) { /* тега нет — всё хорошо */ }
+
   run(`${git} tag v${next}`);
   run(`${git} push`);
   run(`${git} push --tags`);
