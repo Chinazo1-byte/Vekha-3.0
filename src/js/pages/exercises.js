@@ -187,13 +187,29 @@ function openExerciseModal(existing) {
       </div>
       <div class="form-group">
         <label class="form-label">Тип упражнения</label>
-        <div class="type-grid">
-          ${EXERCISE_TYPES.map(t => `
-            <div class="type-tile ${selectedType === t.key ? 'selected' : ''}" data-type="${t.key}">
-              <div class="type-tile-icon" style="color:${t.color}">${typeIcon(t.key, 24)}</div>
-              <div class="type-tile-name">${t.label}</div>
-            </div>`).join('')}
-        </div>
+        ${(() => {
+          const groups = [
+            { key: 'perception', label: 'Восприятие и внимание' },
+            { key: 'thinking',   label: 'Мышление и логика' },
+            { key: 'literacy',   label: 'Грамота и речь' },
+            { key: 'math',       label: 'Математика' },
+          ];
+          return groups.map(g => {
+            const types = EXERCISE_TYPES.filter(t => t.group === g.key);
+            if (!types.length) return '';
+            return `
+              <div class="type-group-label">${g.label}</div>
+              <div class="type-grid">
+                ${types.map(t => `
+              <div class="type-tile ${selectedType === t.key ? 'selected' : ''}" data-type="${t.key}"
+                style="--tile-color:${t.color};--tile-color-l:${t.colorL}">
+                    <div class="type-tile-icon" style="color:${t.color}">${typeIcon(t.key, 26)}</div>
+                    <div class="type-tile-name">${t.label}</div>
+                    <div class="type-tile-desc">${escHtml(t.desc || '')}</div>
+                  </div>`).join('')}
+              </div>`;
+          }).join('');
+        })()}
         <input type="hidden" id="ex-type" value="${escHtml(selectedType)}">
       </div>
       <div class="form-row form-row-2">

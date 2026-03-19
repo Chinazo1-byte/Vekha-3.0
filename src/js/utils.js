@@ -46,72 +46,79 @@ function difficultyTag(d) {
 // ── Типы упражнений ──────────────────────────────────────────────────────────
 
 const TYPE_ICONS = {
-  visual_match:  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="7" r="3" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="13" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M8 7h4M8 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 7l1.5 3L12 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  memory_game:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="9" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 6h2M14.5 13h-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
-  find_pairs:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="6" r="2" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="14" r="2" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="4" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="12" width="4" height="4" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M7 6h3M10 6l3 2.5M7 14h3M10 14l3-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  odd_one_out:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="6" cy="7" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="14" cy="7" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="14" r="2.5" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="7" r="2.5" fill="currentColor" opacity=".15"/><path d="M13 13l3 3M16 13l-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
-  whats_missing: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="5" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="2" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="9" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 1.5"/><path d="M16 9l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  sorting:       `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5h6M3 10h6M3 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="12" y="3" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="12" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".2"/></svg>`,
-  categories:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".15"/><rect x="2" y="11" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".3"/><path d="M13 14.5l1.5 1.5 2.5-2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  sequencing:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="1" y="7" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="13" y="3" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M5 10h2M11 10h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
-  pattern:       `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="4" cy="10" r="2" fill="currentColor" opacity=".8"/><rect x="8" y="8" width="4" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/><circle cx="16" cy="10" r="2" fill="currentColor" opacity=".8"/><path d="M3 15l2-2M6 15l-1-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M15 5l1 1.5L17 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  story_order:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="4" width="5" height="7" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="8.5" y="4" width="5" height="7" rx="1" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".12"/><rect x="15" y="4" width="3" height="7" rx="1" stroke="currentColor" stroke-width="1.5" stroke-dasharray="1.5 1"/><path d="M4 14.5h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M13 13l2 1.5L13 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  word_to_pic:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7h8M3 10h6M3 13h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="12" y="6" width="6" height="8" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M12 11l2-2 2 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14.5" cy="8.5" r="1" fill="currentColor"/></svg>`,
-  word_builder:  `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="1" y="6" width="5" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="7.5" y="6" width="5" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><rect x="14" y="6" width="5" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M3 10h1.5M9.5 10H11M16 10h1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
-  fill_blank:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 7h5M3 11h3M11 7h6M10 11h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><rect x="7" y="9" width="3" height="3" rx="0.5" stroke="currentColor" stroke-width="1.3" stroke-dasharray="1.5 1"/><path d="M3 15h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".4"/></svg>`,
-  first_sound:   `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10c0-3.3 2.7-6 6-6s6 2.7 6 6-2.7 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10" cy="10" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M7 10h1M12 10h1M10 7v1M10 12v1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
-  counting:      `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="6" r="1.5" fill="currentColor"/><circle cx="10" cy="6" r="1.5" fill="currentColor"/><circle cx="15" cy="6" r="1.5" fill="currentColor"/><circle cx="5" cy="11" r="1.5" fill="currentColor"/><circle cx="10" cy="11" r="1.5" fill="currentColor"/><path d="M13 14l1.5 1.5L18 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  size_order:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="14" width="3" height="4" rx="0.5" stroke="currentColor" stroke-width="1.5"/><rect x="7" y="10" width="3" height="8" rx="0.5" stroke="currentColor" stroke-width="1.5"/><rect x="12" y="6" width="3" height="12" rx="0.5" stroke="currentColor" stroke-width="1.5"/><path d="M17 4l1.5 3M17 4l-1.5 3M17 4v6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  compare:       `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="5" cy="10" r="3.5" stroke="currentColor" stroke-width="1.5"/><circle cx="15" cy="10" r="3.5" stroke="currentColor" stroke-width="1.5" fill="currentColor" opacity=".12"/><path d="M9 8.5l2 1.5-2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-  true_false:    `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l3 3 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/></svg>`,
-  emotion_match: `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.5"/><path d="M7 12.5c.8 1.2 2 1.8 3 1.8s2.2-.6 3-1.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="7.5" cy="9" r="1" fill="currentColor"/><circle cx="12.5" cy="9" r="1" fill="currentColor"/></svg>`,
+  visual_match: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h5l3.5 5h9.5" /> <path d="M3 17h5l3.495 -5" /> <path d="M18 15l3 -3l-3 -3" /></svg>`,
+  memory_game: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.604 7.197l7.138 -3.109a.96 .96 0 0 1 1.27 .527l4.924 11.902a1 1 0 0 1 -.514 1.304l-7.137 3.109a.96 .96 0 0 1 -1.271 -.527l-4.924 -11.903a1 1 0 0 1 .514 -1.304l0 .001" /> <path d="M15 4h1a1 1 0 0 1 1 1v3.5" /> <path d="M20 6c.264 .112 .52 .217 .768 .315a1 1 0 0 1 .53 1.311l-2.298 5.374" /></svg>`,
+  find_pairs: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8v-2a2 2 0 0 1 2 -2h2" /> <path d="M4 16v2a2 2 0 0 0 2 2h2" /> <path d="M16 4h2a2 2 0 0 1 2 2v2" /> <path d="M16 20h2a2 2 0 0 0 2 -2v-2" /> <path d="M8 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /> <path d="M16 16l-2.5 -2.5" /></svg>`,
+  odd_one_out: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /> <path d="M10 10l4 4m0 -4l-4 4" /></svg>`,
+  whats_missing: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" /> <path d="M14.071 17.764a8.989 8.989 0 0 1 -2.071 .236c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.346 0 6.173 1.727 8.482 5.182" /> <path d="M19 22v.01" /> <path d="M19 19a2.003 2.003 0 0 0 .914 -3.782a1.98 1.98 0 0 0 -2.414 .483" /></svg>`,
+  sorting: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h3l2 2h5a2 2 0 0 1 2 2v7a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2" /> <path d="M17 16v2a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-9a2 2 0 0 1 2 -2h2" /></svg>`,
+  categories: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v6h-6l0 -6" /> <path d="M14 4h6v6h-6l0 -6" /> <path d="M4 14h6v6h-6l0 -6" /> <path d="M14 17a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /></svg>`,
+  sequencing: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 5h-5v5h-5v5h-5v5h-5" /></svg>`,
+  pattern: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l6 -7l5 5l5 -6" /> <path d="M14 14a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M9 9a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 16a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M19 8a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /></svg>`,
+  word_to_pic: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 8h.01" /> <path d="M11.5 21h-5.5a3 3 0 0 1 -3 -3v-12a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v5.5" /> <path d="M15 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" /> <path d="M20.2 20.2l1.8 1.8" /> <path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l2 2" /></svg>`,
+  word_builder: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 15.5a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0" /> <path d="M3 19v-10.5a3.5 3.5 0 0 1 7 0v10.5" /> <path d="M3 13h7" /> <path d="M21 12v7" /></svg>`,
+  fill_blank: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12h4" /> <path d="M9 4a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3" /> <path d="M15 4a3 3 0 0 0 -3 3v10a3 3 0 0 0 3 3" /></svg>`,
+  first_sound: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6" /> <path d="M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5" /> <path d="M12 8l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8" /></svg>`,
+  counting: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18" /> <path d="M19 21v-18" /> <path d="M5 7h14" /> <path d="M5 15h14" /> <path d="M8 13v4" /> <path d="M11 13v4" /> <path d="M16 13v4" /> <path d="M14 5v4" /> <path d="M11 5v4" /> <path d="M8 5v4" /> <path d="M3 21h18" /></svg>`,
+  size_order: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14a1 1 0 0 1 1 1v5a1 1 0 0 1 -1 1h-7a1 1 0 0 0 -1 1v7a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1v-14a1 1 0 0 1 1 -1" /> <path d="M4 8l2 0" /> <path d="M4 12l3 0" /> <path d="M4 16l2 0" /> <path d="M8 4l0 2" /> <path d="M12 4l0 3" /> <path d="M16 4l0 2" /></svg>`,
+  compare: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20l10 0" /> <path d="M6 6l6 -1l6 1" /> <path d="M12 3l0 17" /> <path d="M9 12l-3 -6l-3 6a3 3 0 0 0 6 0" /> <path d="M21 12l-3 -6l-3 6a3 3 0 0 0 6 0" /></svg>`,
+  true_false: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 12l5 5l10 -10" /> <path d="M2 12l5 5m5 -5l5 -5" /></svg>`,
+  syllables: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12v-5.5a2.5 2.5 0 0 1 5 0v5.5m0 -4h-5" /> <path d="M13 4l3 8l3 -8" /> <path d="M5 18h14" /> <path d="M17 20l2 -2l-2 -2" /> <path d="M7 16l-2 2l2 2" /></svg>`,
+  sound_position: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" /> <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0" /></svg>`,
+  syllable_count: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13v-8.5a1.5 1.5 0 0 1 3 0v7.5" /> <path d="M11 11.5v-2a1.5 1.5 0 0 1 3 0v2.5" /> <path d="M14 10.5a1.5 1.5 0 0 1 3 0v1.5" /> <path d="M17 11.5a1.5 1.5 0 0 1 3 0v4.5a6 6 0 0 1 -6 6h-2h.208a6 6 0 0 1 -5.012 -2.7l-.196 -.3c-.312 -.479 -1.407 -2.388 -3.286 -5.728a1.5 1.5 0 0 1 .536 -2.022a1.867 1.867 0 0 1 2.28 .28l1.47 1.47" /> <path d="M5 3l-1 -1" /> <path d="M4 7h-1" /> <path d="M14 3l1 -1" /> <path d="M15 6h1" /></svg>`,
+  label_image: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 7.5a1 1 0 1 0 2 0a1 1 0 1 0 -2 0" /> <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3" /></svg>`,
+  yes_no: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v8a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-7a1 1 0 0 1 1 -1h3a4 4 0 0 0 4 -4v-1a2 2 0 0 1 4 0v5h3a2 2 0 0 1 2 2l-1 5a2 3 0 0 1 -2 2h-7a3 3 0 0 1 -3 -3" /></svg>`,
 };
 
 const EXERCISE_TYPES = [
-  // ── Восприятие и сопоставление ───────────────────────────
-  { key: 'visual_match',  label: 'Сопоставление',       color: '#5B5BD6', colorL: '#EDEDFC',
+  // ── Восприятие и внимание ─────────────────────────────────
+  { key: 'visual_match',  label: 'Сопоставление',       group: 'perception', color: '#5B5BD6', colorL: '#EDEDFC',
     desc: 'Соедини картинку с картинкой, слово с картинкой или слово со словом' },
-  { key: 'memory_game',   label: 'Мемо',                 color: '#0D9488', colorL: '#CCFBF1',
+  { key: 'memory_game',   label: 'Мемо',                 group: 'perception', color: '#0D9488', colorL: '#CCFBF1',
     desc: 'Игра «Мемо» — перевернуть карточки и найти одинаковые пары' },
-  { key: 'find_pairs',    label: 'Найди пару',           color: '#0369A1', colorL: '#DBEAFE',
+  { key: 'find_pairs',    label: 'Найди пару',           group: 'perception', color: '#0369A1', colorL: '#DBEAFE',
     desc: 'Соединить объекты из левого столбца с парами из правого' },
-  { key: 'odd_one_out',   label: 'Лишний предмет',       color: '#D14343', colorL: '#FDEDED',
+  { key: 'odd_one_out',   label: 'Лишний предмет',       group: 'perception', color: '#D14343', colorL: '#FDEDED',
     desc: 'Из 4 предметов найти тот, который не подходит к остальным' },
-  // ── Память и внимание ────────────────────────────────────
-  { key: 'whats_missing', label: 'Что исчезло?',         color: '#0284C7', colorL: '#E0F2FE',
+  { key: 'whats_missing', label: 'Что исчезло?',         group: 'perception', color: '#0284C7', colorL: '#E0F2FE',
     desc: 'Запомнить набор предметов, потом найти что убрали' },
-  // ── Мышление и классификация ─────────────────────────────
-  { key: 'sorting',       label: 'Сортировка',           color: '#1A9E6A', colorL: '#E3F5ED',
+  { key: 'label_image',   label: 'Подпиши картинку',     group: 'perception', color: '#0369A1', colorL: '#DBEAFE',
+    desc: 'Выбрать подписи к отмеченным частям изображения' },
+  // ── Мышление и логика ────────────────────────────────────
+  { key: 'sorting',       label: 'Сортировка',           group: 'thinking', color: '#1A9E6A', colorL: '#E3F5ED',
     desc: 'Распределить предметы по двум категориям' },
-  { key: 'categories',    label: 'Три группы',           color: '#EA580C', colorL: '#FFF7ED',
+  { key: 'categories',    label: 'Три группы',           group: 'thinking', color: '#EA580C', colorL: '#FFF7ED',
     desc: 'Распределить предметы по трём и более категориям' },
-  { key: 'sequencing',    label: 'Последовательность',   color: '#C27803', colorL: '#FEF3CD',
+  { key: 'sequencing',    label: 'Последовательность',   group: 'thinking', color: '#C27803', colorL: '#FEF3CD',
     desc: 'Расположить события, числа или картинки в правильном порядке' },
-  { key: 'pattern',       label: 'Продолжи ряд',         color: '#0891B2', colorL: '#ECFEFF',
+  { key: 'pattern',       label: 'Продолжи ряд',         group: 'thinking', color: '#0891B2', colorL: '#ECFEFF',
     desc: 'Найти закономерность и выбрать следующий элемент' },
-  { key: 'story_order',   label: 'История по порядку',   color: '#B45309', colorL: '#FEF3C7',
-    desc: 'Расставить кадры истории в правильном порядке' },
-  // ── Речь и грамота ───────────────────────────────────────
-  { key: 'word_to_pic',   label: 'Слово → картинка',     color: '#BE185D', colorL: '#FCE7F3',
-    desc: 'Прочитать слово и выбрать соответствующую картинку' },
-  { key: 'word_builder',  label: 'Составь слово',        color: '#DB2777', colorL: '#FDF2F8',
-    desc: 'Собрать слово из перемешанных букв' },
-  { key: 'fill_blank',    label: 'Вставь слово',         color: '#6D28D9', colorL: '#F5F3FF',
-    desc: 'Выбрать подходящее слово для заполнения пропуска в предложении' },
-  { key: 'first_sound',   label: 'Первый звук',          color: '#0369A1', colorL: '#E0F2FE',
-    desc: 'Определить первый звук или букву слова по картинке' },
-  // ── Математика и количество ──────────────────────────────
-  { key: 'counting',      label: 'Считаем',              color: '#65A30D', colorL: '#ECFCCB',
-    desc: 'Посчитать предметы на картинке и выбрать правильное число' },
-  { key: 'size_order',    label: 'По размеру',           color: '#9333EA', colorL: '#F5F3FF',
-    desc: 'Упорядочить предметы от меньшего к большему или наоборот' },
-  { key: 'compare',       label: 'Сравни',               color: '#047857', colorL: '#ECFDF5',
-    desc: 'Сравнить два множества или размера: больше, меньше или равно' },
-  // ── Эмоции и социальное познание ─────────────────────────
-  { key: 'true_false',    label: 'Верно / Неверно',      color: '#0891B2', colorL: '#F0FDFA',
+  { key: 'true_false',    label: 'Верно / Неверно',      group: 'thinking', color: '#0891B2', colorL: '#F0FDFA',
     desc: 'Картинка и утверждение — решить, правда это или нет' },
-  { key: 'emotion_match', label: 'Назови эмоцию',        color: '#F59E0B', colorL: '#FFFBEB',
-    desc: 'Определить эмоцию персонажа и выбрать правильное название' },
+  { key: 'yes_no',        label: 'Да / Нет',             group: 'thinking', color: '#1A9E6A', colorL: '#E3F5ED',
+    desc: 'Быстро сортировать карточки на две стопки по заданному признаку' },
+  // ── Грамота и речь ───────────────────────────────────────
+  { key: 'word_to_pic',   label: 'Слово → картинка',     group: 'literacy', color: '#BE185D', colorL: '#FCE7F3',
+    desc: 'Прочитать слово и выбрать соответствующую картинку' },
+  { key: 'word_builder',  label: 'Составь слово',        group: 'literacy', color: '#DB2777', colorL: '#FDF2F8',
+    desc: 'Собрать слово из перемешанных букв' },
+  { key: 'fill_blank',    label: 'Вставь слово',         group: 'literacy', color: '#6D28D9', colorL: '#F5F3FF',
+    desc: 'Выбрать подходящее слово для заполнения пропуска в предложении' },
+  { key: 'first_sound',   label: 'Первый звук',          group: 'literacy', color: '#0369A1', colorL: '#E0F2FE',
+    desc: 'Определить первый звук или букву слова по картинке' },
+  { key: 'syllables',     label: 'Слоги → слово',        group: 'literacy', color: '#7C3AED', colorL: '#F3E8FF',
+    desc: 'Собрать слово из перемешанных слогов, нажимая по очереди' },
+  { key: 'sound_position',label: 'Место звука',          group: 'literacy', color: '#0D9488', colorL: '#CCFBF1',
+    desc: 'Определить, где стоит заданный звук: в начале, середине или конце слова' },
+  { key: 'syllable_count',label: 'Считай слоги',         group: 'literacy', color: '#EA580C', colorL: '#FFF7ED',
+    desc: 'Посчитать слоги в слове: нажать кнопку нужное количество раз' },
+  // ── Математика ───────────────────────────────────────────
+  { key: 'counting',      label: 'Считаем',              group: 'math', color: '#65A30D', colorL: '#ECFCCB',
+    desc: 'Посчитать предметы на картинке и выбрать правильное число' },
+  { key: 'size_order',    label: 'По размеру',           group: 'math', color: '#9333EA', colorL: '#F5F3FF',
+    desc: 'Упорядочить предметы от меньшего к большему или наоборот' },
+  { key: 'compare',       label: 'Сравни',               group: 'math', color: '#047857', colorL: '#ECFDF5',
+    desc: 'Сравнить два множества или размера: больше, меньше или равно' },
 ];
 
 function exerciseTypeMeta(key) {
@@ -120,8 +127,8 @@ function exerciseTypeMeta(key) {
 
 function typeIcon(key, size=20) {
   const svg = TYPE_ICONS[key];
-  if (!svg) return `<svg width="${size}" height="${size}" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" stroke-width="1.5"/></svg>`;
-  return svg.replace(/width="20" height="20"/, `width="${size}" height="${size}"`);
+  if (!svg) return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>`;
+  return svg.replace('viewBox="0 0 24 24"', `width="${size}" height="${size}" viewBox="0 0 24 24"`);
 }
 
 function typeBadge(key) {

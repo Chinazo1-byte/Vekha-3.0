@@ -34,7 +34,6 @@ const Player = {
         odd_one_out:   () => pt.oddOneOut(ex, content, studentId, self),
         sorting:       () => pt.sorting(ex, content, studentId, self),
         sequencing:    () => pt.sequencing(ex, content, studentId, self),
-        story_order:   () => pt.story_order(ex, content, studentId, self),
         whats_missing: () => pt.whats_missing(ex, content, studentId, self),
         categories:    () => pt.categories(ex, content, studentId, self),
         pattern:       () => pt.pattern(ex, content, studentId, self),
@@ -46,7 +45,11 @@ const Player = {
         size_order:    () => pt.size_order(ex, content, studentId, self),
         compare:       () => pt.compare(ex, content, studentId, self),
         true_false:    () => pt.true_false(ex, content, studentId, self),
-        emotion_match: () => pt.emotion_match(ex, content, studentId, self),
+        syllables:     () => pt.syllables(ex, content, studentId, self),
+        sound_position:() => pt.sound_position(ex, content, studentId, self),
+        syllable_count:() => pt.syllable_count(ex, content, studentId, self),
+        label_image:   () => pt.label_image(ex, content, studentId, self),
+        yes_no:        () => pt.yes_no(ex, content, studentId, self),
       };
       const fn = map[ex.type];
       if (fn) {
@@ -282,7 +285,7 @@ const PlayerTypes = {
       }
     }
 
-    const THUMB = 'width:100px;height:100px;object-fit:cover;border-radius:10px;flex-shrink:0';
+    const THUMB = 'width:100px;height:100px;object-fit:contain;border-radius:10px;flex-shrink:0;padding:3px';
     const THUMB_CONTAIN = 'width:100px;height:100px;object-fit:contain;border-radius:10px;flex-shrink:0;background:var(--surface-2)';
 
     const render = async () => {
@@ -691,7 +694,7 @@ const PlayerTypes = {
               ${items.map((it, i) => {
                 const isOdd = it.text === oddItem?.text && it.img === oddItem?.img;
                 return `<div class="player-opt" data-odd="${isOdd}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="object-fit:cover;border-radius:10px">` : ''}
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="object-fit:contain;padding:4px;border-radius:10px">` : ''}
                   ${it.text ? `<span>${escHtml(it.text)}</span>` : ''}
                 </div>`;
               }).join('')}
@@ -766,7 +769,7 @@ const PlayerTypes = {
               border:2px dashed var(--border-2);margin-bottom:24px" id="sort-pool">
               ${shuffledItems.filter(it => !Object.values(placed).flat().includes(it)).map((it, i) => `
                 <div class="sort-chip-v2" data-pool-i="${i}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-md)">` : ''}
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:100px;height:100px;object-fit:contain;border-radius:var(--r-md)">` : ''}
                   ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
                 </div>`).join('')
               || '<div style="color:var(--text-3);font-size:13px;margin:auto">Все распределены ✓</div>'}
@@ -941,40 +944,27 @@ Object.assign(PlayerTypes, {
             </div>
 
             <!-- Слоты ответа (drop target) -->
-            <div id="seq-answer-zone" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
-              margin-bottom:20px;min-height:96px;background:var(--surface-2);border-radius:var(--r-lg);
-              padding:10px;border:2px dashed var(--border-2)">
+            <div id="seq-answer-zone" class="seq-answer-zone">
               ${selected.map((origIdx, pos) => {
                 const item = items[origIdx];
-                return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
-                  class="seq-placed" data-pos="${pos}" data-orig="${origIdx}">
-                  <div style="width:150px;height:150px;border-radius:var(--r-lg);overflow:hidden;background:var(--indigo-l);
-                    display:flex;align-items:center;justify-content:center;border:2px solid var(--indigo);position:relative">
-                    ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                      : `<span style="font-size:13px;font-weight:600;color:var(--indigo);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
-                    <div style="position:absolute;top:2px;left:2px;background:var(--indigo);color:#fff;
-                      width:20px;height:20px;border-radius:50%;font-size:10px;font-weight:700;
-                      display:flex;align-items:center;justify-content:center">${pos+1}</div>
-                  </div>
-                  ${item.label ? `<div style="font-size:11px;color:var(--indigo);font-weight:500;max-width:80px;text-align:center">${escHtml(item.label)}</div>` : ''}
+                return `<div class="seq-placed-slot slot-${pos % 6} seq-placed" data-pos="${pos}" data-orig="${origIdx}">
+                  <div class="sl-num">${pos+1}</div>
+                  ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100px;height:100px;object-fit:contain;border-radius:var(--r-md);background:var(--surface)">`
+                    : `<span style="font-size:13px;font-weight:600;text-align:center;padding:6px;max-width:90px">${escHtml(item.label)}</span>`}
+                  ${item.label && item.img ? `<div class="sl-label">${escHtml(item.label)}</div>` : ''}
                 </div>`;
               }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Перетащи или нажимай на элементы ниже</div>'}
             </div>
 
             <!-- Варианты (pool) -->
-            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:20px">
-              ${order.map((origIdx, pos) => {
+            <div class="seq-opt-pool" style="margin-bottom:20px">
+              ${order.map((origIdx) => {
                 const item = items[origIdx];
                 const isPlaced = selected.includes(origIdx);
-                return `<div style="display:flex;flex-direction:column;align-items:center;gap:6px;
-                  cursor:${isPlaced?'default':'grab'};opacity:${isPlaced?.25:1};transition:opacity .2s"
-                  class="${isPlaced?'seq-placed-ghost':'seq-opt'}" data-orig="${origIdx}">
-                  <div style="width:150px;height:150px;border-radius:var(--r-lg);overflow:hidden;background:var(--surface);
-                    border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
-                    ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
-                      : `<span style="font-size:13px;font-weight:500;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
-                  </div>
-                  ${item.label ? `<div style="font-size:11px;color:var(--text-3);max-width:80px;text-align:center">${escHtml(item.label)}</div>` : ''}
+                return `<div class="seq-opt ${isPlaced?'placed':''}" data-orig="${origIdx}">
+                  ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100px;height:100px;object-fit:contain;border-radius:var(--r-md)">`
+                    : `<span style="font-size:13px;font-weight:500;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
+                  ${item.label && item.img ? `<div class="sl-label">${escHtml(item.label)}</div>` : ''}
                 </div>`;
               }).join('')}
             </div>
@@ -1182,7 +1172,7 @@ Object.assign(PlayerTypes, {
                   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
                     <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                       background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
-                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
+                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:contain;padding:6px">`
                         : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
                     </div>
                     ${item.label ? `<div style="font-size:11px;color:var(--text-3);max-width:84px;text-align:center">${escHtml(item.label)}</div>` : ''}
@@ -1220,7 +1210,7 @@ Object.assign(PlayerTypes, {
                   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
                     <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                       background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center">
-                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
+                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:contain;padding:6px">`
                         : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:4px">${escHtml(item.label)}</span>`}
                     </div>
                     ${item.label ? `<div style="font-size:11px;color:var(--text-3);max-width:84px;text-align:center">${escHtml(item.label)}</div>` : ''}
@@ -1408,7 +1398,7 @@ Object.assign(PlayerTypes, {
                       background:${selected===item.id?'var(--indigo-l)':'var(--surface)'};transition:all .15s;min-width:70px">
                     <div style="width:100px;height:100px;border-radius:var(--r-md);overflow:hidden;
                       background:var(--surface-2);display:flex;align-items:center;justify-content:center">
-                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
+                      ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:contain;padding:6px">`
                         : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
                     </div>
                     ${item.label && item.img ? `<div style="font-size:11px;color:var(--text-3);text-align:center;max-width:70px">${escHtml(item.label)}</div>` : ''}
@@ -1431,7 +1421,7 @@ Object.assign(PlayerTypes, {
                           style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
                             padding:6px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface-2)">
                           <div style="width:100px;height:100px;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center">
-                            ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
+                            ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:contain;padding:6px">`
                               : `<span style="font-size:12px;text-align:center;padding:2px">${escHtml(item.label)}</span>`}
                           </div>
                         </div>`).join('')}
@@ -1794,7 +1784,7 @@ Object.assign(PlayerTypes, {
                   <div style="font-size:12px;font-weight:700;color:${isSel?'var(--indigo)':'var(--text-3)'}">${pos+1}</div>
                   <div style="width:140px;height:180px;border-radius:var(--r-lg);overflow:hidden;
                     border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
-                    ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:cover">`
+                    ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img" style="width:100%;height:100%;object-fit:contain;padding:6px">`
                       : `<span style="font-size:13px;font-weight:600;color:var(--text-2);text-align:center;padding:6px">${escHtml(item.label)}</span>`}
                   </div>
                   ${item.label ? `<div style="font-size:11px;color:var(--text-3);text-align:center;max-width:80px">${escHtml(item.label)}</div>` : ''}
@@ -2029,17 +2019,6 @@ Object.assign(PlayerTypes, {
     await next();
   },
 
-  // ── История по порядку (story_order) ─────────────────────────────────────
-  async story_order(ex, content, studentId, player) {
-    // Использует тот же контент что и sequencing (panels → items)
-    const items = content.panels || content.items || [];
-    await PlayerTypes.sequencing(
-      ex,
-      { ...content, items: items.map(p => ({ label: p.text || p.label || '', img: p.image || p.img || '' })) },
-      studentId,
-      player
-    );
-  },
 
   // ── Слово → картинка (word_to_pic) ───────────────────────────────────────
   async word_to_pic(ex, content, studentId, player) {
@@ -2285,72 +2264,478 @@ Object.assign(PlayerTypes, {
     next();
   },
 
-  // ── Назови эмоцию (emotion_match) ────────────────────────────────────────
-  async emotion_match(ex, content, studentId, player) {
-    const tasks = content.tasks || [];
-    if (!tasks.length) { player.close(); toast('Нет заданий', 'error'); return; }
 
-    const el = player._el;
-    const startTime = Date.now();
+  // ── Слоги → слово ─────────────────────────────────────────────────────────
+  async syllables(ex, content, studentId, player) {
+    const items = (content.items || []).filter(it => it.syllables && it.syllables.length > 0);
+    if (!items.length) {
+      player._el.innerHTML = `<div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div><div class="player-body"><div class="player-card" style="text-align:center"><div style="font-size:18px;color:var(--text-3)">Нет заданий.</div></div></div>`;
+      bindCloseBtn(player._el); return;
+    }
     let idx = 0, correct = 0;
+    const startTime = Date.now();
 
-    const next = async () => {
-      if (idx >= tasks.length) {
-        const dur = Math.round((Date.now()-startTime)/1000);
-        player._saveResult(studentId, ex.id, correct, tasks.length, [], dur);
-        PlayerTypes._showResult(el, player, correct, tasks.length, dur, null);
+    async function render() {
+      if (!player._el) return;
+      if (idx >= items.length) {
+        const dur = Math.round((Date.now() - startTime) / 1000);
+        player._saveResult(studentId, ex.id, correct, items.length, [], dur);
+        PlayerTypes._showResult(player._el, player, correct, items.length, dur, null);
         return;
       }
-      const task = tasks[idx];
-      const emotions = [...(task.emotions||[])].sort(()=>Math.random()-.5);
+      const item = items[idx];
+      // Shuffle the pool (indices into item.syllables)
+      const shuffledIdx = item.syllables.map((_, i) => i);
+      for (let i = shuffledIdx.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledIdx[i], shuffledIdx[j]] = [shuffledIdx[j], shuffledIdx[i]];
+      }
+      // selected = ordered list of syllable indices as picked by child
+      let selected = [];
+      const answer = item.syllables.join('');
 
-      el.innerHTML = `
-        <div class="player-topbar">
-          <button class="btn btn-ghost btn-sm" id="em-close">Закрыть</button>
-          <div style="font-size:14px;font-weight:600">${escHtml(ex.name)}</div>
-          <div style="margin-left:auto;font-size:13px;color:var(--text-3)">${idx+1}/${tasks.length}</div>
-        </div>
-        <div class="player-body">
-          <div class="player-card" style="max-width:680px">
-            <div style="text-align:center;margin-bottom:20px">
-              <div id="em-img" style="margin-bottom:12px"></div>
-              ${task.situation ? `<div style="font-size:15px;line-height:1.6;color:var(--text-1);max-width:440px;margin:0 auto">${escHtml(task.situation)}</div>` : ''}
-            </div>
-            <div style="font-size:12.5px;font-weight:700;color:var(--text-3);text-align:center;margin-bottom:16px">Что чувствует?</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center" id="em-opts"></div>
-          </div>
-        </div>`;
-      bindCloseBtn(el);
-
-      const imgPath = task.image || task.img || '';
-      if (imgPath) {
-        const d = await window.db.files.getImageData(imgPath);
-        if (d) el.querySelector('#em-img').innerHTML = `<img src="${d}" style="height:240px;object-fit:contain;border-radius:var(--r-lg)">`;
+      function refreshUI() {
+        if (!player._el) return;
+        const done = selected.length === item.syllables.length;
+        // Live word display
+        const wordEl = player._el.querySelector('#syl-word');
+        if (wordEl) wordEl.textContent = selected.length ? selected.map(i => item.syllables[i]).join('') : '___';
+        // Placed chips zone
+        const slotsEl = player._el.querySelector('#syl-slots');
+        if (slotsEl) {
+          slotsEl.innerHTML = selected.map(i =>
+            `<div class="syl-placed" data-i="${i}" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:var(--r-lg);border:2px solid var(--indigo);background:var(--indigo-l);font-size:22px;font-weight:800;color:var(--indigo);cursor:pointer;transition:all .15s;user-select:none">${escHtml(item.syllables[i])}</div>`
+          ).join('');
+          slotsEl.querySelectorAll('.syl-placed').forEach(ch => {
+            ch.addEventListener('click', () => {
+              const i = +ch.dataset.i;
+              selected = selected.filter(x => x !== i);
+              Sound.match();
+              refreshUI();
+            });
+          });
+        }
+        // Pool chips
+        const poolEl = player._el.querySelector('#syl-pool');
+        if (poolEl) {
+          poolEl.innerHTML = shuffledIdx.filter(i => !selected.includes(i)).map(i =>
+            `<div class="syl-chip" data-i="${i}" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:var(--r-lg);border:2px solid var(--border);background:var(--surface);font-size:22px;font-weight:800;cursor:pointer;transition:all .15s;user-select:none">${escHtml(item.syllables[i])}</div>`
+          ).join('');
+          poolEl.querySelectorAll('.syl-chip').forEach(ch => {
+            ch.addEventListener('click', () => {
+              selected.push(+ch.dataset.i);
+              Sound.match();
+              refreshUI();
+            });
+          });
+        }
+        // Buttons
+        const resetBtn = player._el.querySelector('#syl-reset');
+        const checkBtn = player._el.querySelector('#syl-check');
+        if (resetBtn) resetBtn.style.display = selected.length > 0 ? 'inline-flex' : 'none';
+        if (checkBtn) checkBtn.style.display = done ? 'inline-flex' : 'none';
       }
 
-      const optsWrap = el.querySelector('#em-opts');
-      emotions.forEach(emo => {
-        const btn = document.createElement('button');
-        btn.className = 'player-opt';
-        btn.style.cssText = 'padding:12px 20px;font-size:15px;min-width:120px';
-        btn.textContent = emo.label;
+      player._el.innerHTML = playerTopbar(ex.name, idx, items.length) + `
+        <div class="player-body" style="overflow-y:auto">
+          <div class="player-card" style="max-width:600px;width:100%;text-align:center">
+            <div class="player-question" style="margin-bottom:8px">Собери слово из слогов</div>
+            ${item.img ? `<img data-path="${escHtml(item.img)}" style="height:140px;object-fit:contain;border-radius:var(--r-lg);margin-bottom:14px">` : ''}
+            <div id="syl-word" style="font-size:34px;font-weight:900;color:var(--indigo);letter-spacing:.04em;text-align:center;margin-bottom:6px;min-height:44px">___</div>
+            <div style="font-size:13px;font-weight:700;color:var(--text-3);text-align:center;margin-bottom:14px">Нажимай слоги по порядку · нажми ещё раз чтобы убрать</div>
+            <div id="syl-slots" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:52px;margin-bottom:16px"></div>
+            <div id="syl-pool" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:16px;background:var(--surface-2);border-radius:var(--r-xl);border:2px dashed var(--border);min-height:58px;margin-bottom:20px"></div>
+            <div id="syl-fb" style="text-align:center;margin-bottom:12px;font-size:14px;font-weight:700;min-height:24px"></div>
+            <div style="display:flex;justify-content:center;gap:10px">
+              <button class="btn btn-ghost" id="syl-reset" style="display:none">↩ Сначала</button>
+              <button class="btn btn-primary" id="syl-check" style="display:none">Проверить →</button>
+            </div>
+          </div>
+        </div>`;
+      bindCloseBtn(player._el);
+      if (!player._el) return;
+      await loadPlayerImages(player._el);
+      if (!player._el) return;
+
+      player._el.querySelector('#syl-reset').addEventListener('click', () => {
+        selected = [];
+        const fb = player._el.querySelector('#syl-fb'); if (fb) fb.textContent = '';
+        refreshUI();
+      });
+      player._el.querySelector('#syl-check').addEventListener('click', () => {
+        const assembled = selected.map(i => item.syllables[i]).join('');
+        const isOk = assembled === answer;
+        if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+        const fb = player._el.querySelector('#syl-fb');
+        if (fb) {
+          fb.style.cssText = `padding:8px 16px;border-radius:var(--r-lg);display:inline-block;background:${isOk ? 'var(--green-l)' : 'var(--rose-l)'};color:${isOk ? 'var(--green)' : 'var(--rose)'};border:1.5px solid ${isOk ? '#B6E8D0' : '#F5BFBF'}`;
+          fb.textContent = isOk ? '✓ Правильно! Отлично!' : `✗ Правильно: ${answer}`;
+        }
+        player._el.querySelectorAll('#syl-reset,#syl-check,.syl-chip,.syl-placed').forEach(b => b.style.pointerEvents = 'none');
+        setTimeout(() => { idx++; render(); }, 1400);
+      });
+      refreshUI();
+    }
+    render();
+  },
+
+  // ── Место звука ─────────────────────────────────────────────────────────────
+  async sound_position(ex, content, studentId, player) {
+    const sound = content.sound || '';
+    const items = (content.items || []).filter(it => it.word && it.position);
+    if (!items.length) {
+      player._el.innerHTML = `<div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div><div class="player-body"><div class="player-card" style="text-align:center"><div style="font-size:18px;color:var(--text-3)">Нет заданий.</div></div></div>`;
+      bindCloseBtn(player._el); return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const startTime = Date.now();
+
+    // Визуальный индикатор позиции: три квадрата, активный закрашен
+    function posBar(pos) {
+      const active = { start: 0, middle: 1, end: 2 }[pos];
+      return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;justify-content:center">
+        ${[0,1,2].map(i => `<div style="width:14px;height:14px;border-radius:3px;border:2px solid currentColor;background:${i===active?'currentColor':'transparent'};transition:background .15s"></div>`).join('')}
+      </div>`;
+    }
+
+    function highlightWord(word, snd) {
+      if (!snd) return escHtml(word);
+      const lo = word.toLowerCase(), s = snd.toLowerCase();
+      const i = lo.indexOf(s);
+      if (i < 0) return escHtml(word);
+      return escHtml(word.slice(0, i)) +
+        `<span style="color:var(--indigo);font-weight:900">${escHtml(word.slice(i, i + s.length))}</span>` +
+        escHtml(word.slice(i + s.length));
+    }
+
+    async function render() {
+      if (!player._el) return;
+      if (idx >= shuffled.length) {
+        const dur = Math.round((Date.now() - startTime) / 1000);
+        player._saveResult(studentId, ex.id, correct, shuffled.length, [], dur);
+        PlayerTypes._showResult(player._el, player, correct, shuffled.length, dur, null);
+        return;
+      }
+      const item = shuffled[idx];
+      const DEFS = [
+        { pos: 'start',  label: 'Начало' },
+        { pos: 'middle', label: 'Середина' },
+        { pos: 'end',    label: 'Конец' },
+      ];
+      player._el.innerHTML = playerTopbar(ex.name, idx, shuffled.length) + `
+        <div class="player-body" style="overflow-y:auto">
+          <div class="player-card" style="max-width:540px;width:100%;text-align:center">
+            <div class="player-question" style="margin-bottom:10px">Где стоит звук <span style="color:var(--indigo)">[${escHtml(sound)}]</span>?</div>
+            ${item.img
+              ? `<div style="width:160px;height:160px;border-radius:var(--r-xl);background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;overflow:hidden"><img data-path="${escHtml(item.img)}" style="width:100%;height:100%;object-fit:contain"></div>`
+              : ''}
+            <div style="font-size:30px;font-weight:900;text-align:center;margin-bottom:24px;letter-spacing:.03em">${highlightWord(item.word, sound)}</div>
+            <div style="display:flex;gap:16px;justify-content:center">
+              ${DEFS.map(d => `
+                <div class="sp-btn" data-pos="${d.pos}" style="width:120px;height:80px;border:2px solid var(--border);border-radius:var(--r-xl);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .15s;font-weight:800;color:var(--text-2);background:var(--surface)">
+                  ${posBar(d.pos)}
+                  <span style="font-size:13px">${d.label}</span>
+                </div>`).join('')}
+            </div>
+            <div id="pos-fb" style="text-align:center;margin-top:20px;font-size:14px;font-weight:700;min-height:24px"></div>
+          </div>
+        </div>`;
+      bindCloseBtn(player._el);
+      if (!player._el) return;
+      await loadPlayerImages(player._el);
+      if (!player._el) return;
+
+      player._el.querySelectorAll('.sp-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          const ok = emo.correct;
-          if (ok) { Sound.success(); correct++; } else Sound.error();
-          el.querySelectorAll('.player-opt').forEach(b => {
-            b.disabled = true;
-            if (emotions.find(e => e.label === b.textContent && e.correct)) {
-              b.style.background = 'var(--green-l)';
-              b.style.borderColor = 'var(--green)';
+          const isOk = btn.dataset.pos === item.position;
+          if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+          player._el.querySelectorAll('.sp-btn').forEach(b => {
+            b.style.pointerEvents = 'none';
+            if (b.dataset.pos === item.position) {
+              b.style.borderColor = 'var(--green)'; b.style.background = 'var(--green-l)'; b.style.color = 'var(--green)';
+            } else if (b === btn) {
+              b.style.borderColor = 'var(--rose)'; b.style.background = 'var(--rose-l)'; b.style.color = 'var(--rose)';
             }
           });
-          if (!ok) { btn.style.background = 'var(--rose-l)'; btn.style.borderColor = 'var(--rose)'; }
-          setTimeout(() => { idx++; next(); }, 1100);
+          const fb = player._el.querySelector('#pos-fb');
+          if (fb) { fb.style.color = isOk ? 'var(--green)' : 'var(--rose)'; fb.textContent = isOk ? '✓ Правильно!' : '✗ Попробуй ещё раз'; }
+          setTimeout(() => { idx++; render(); }, 900);
         });
-        optsWrap.appendChild(btn);
       });
-    };
-    next();
+    }
+    render();
   },
+
+  // ── Считай слоги ────────────────────────────────────────────────────────────
+  async syllable_count(ex, content, studentId, player) {
+    const items = (content.items || []).filter(it => it.word && it.count > 0);
+    if (!items.length) {
+      player._el.innerHTML = `<div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div><div class="player-body"><div class="player-card" style="text-align:center"><div style="font-size:18px;color:var(--text-3)">Нет заданий.</div></div></div>`;
+      bindCloseBtn(player._el); return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const startTime = Date.now();
+
+    async function render() {
+      if (!player._el) return;
+      if (idx >= shuffled.length) {
+        const dur = Math.round((Date.now() - startTime) / 1000);
+        player._saveResult(studentId, ex.id, correct, shuffled.length, [], dur);
+        PlayerTypes._showResult(player._el, player, correct, shuffled.length, dur, null);
+        return;
+      }
+      const item = shuffled[idx];
+      let taps = 0;
+      let locked = false;
+
+      player._el.innerHTML = playerTopbar(ex.name, idx, shuffled.length) + `
+        <div class="player-body" style="overflow-y:auto">
+          <div class="player-card" style="max-width:480px;width:100%;text-align:center">
+            <div class="player-question" style="margin-bottom:8px">Сколько слогов?</div>
+            ${item.img
+              ? `<div style="width:160px;height:160px;border-radius:var(--r-xl);background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;overflow:hidden"><img data-path="${escHtml(item.img)}" style="width:100%;height:100%;object-fit:contain"></div>`
+              : ''}
+            <div style="font-size:38px;font-weight:900;text-align:center;margin-bottom:4px">${escHtml(item.word)}</div>
+            <div id="sc-counter" style="font-size:64px;font-weight:900;text-align:center;color:var(--indigo);line-height:1;margin:12px 0;min-height:72px">0</div>
+            <div id="sc-dots" style="display:flex;gap:6px;justify-content:center;margin-top:0;min-height:22px;margin-bottom:20px"></div>
+            <button id="sc-tap" style="width:120px;height:120px;border-radius:50%;border:none;background:var(--indigo);color:#fff;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;transition:transform .1s;box-shadow:0 6px 20px rgba(91,91,214,.35);margin:0 auto;-webkit-tap-highlight-color:transparent;touch-action:manipulation">
+              <span style="font-size:28px">👏</span>
+              <span style="font-size:13px">Хлопни!</span>
+            </button>
+            <div style="display:flex;gap:12px;justify-content:center;margin-top:20px">
+              <button class="btn btn-ghost" id="sc-reset">↩ Сброс</button>
+              <button class="btn btn-primary" id="sc-check" style="display:none">Проверить →</button>
+            </div>
+            <div id="sc-fb" style="text-align:center;margin-top:16px;font-size:14px;font-weight:700;min-height:24px"></div>
+          </div>
+        </div>`;
+      bindCloseBtn(player._el);
+      if (!player._el) return;
+      await loadPlayerImages(player._el);
+      if (!player._el) return;
+
+      const tapBtn   = player._el.querySelector('#sc-tap');
+      const counter  = player._el.querySelector('#sc-counter');
+      const dots     = player._el.querySelector('#sc-dots');
+      const checkBtn = player._el.querySelector('#sc-check');
+      const resetBtn = player._el.querySelector('#sc-reset');
+      const fb       = player._el.querySelector('#sc-fb');
+
+      tapBtn.addEventListener('click', () => {
+        if (locked) return;
+        taps++;
+        Sound.match();
+        // JS scale animation как в референсе
+        tapBtn.style.transform = 'scale(.88)';
+        setTimeout(() => { if (tapBtn) tapBtn.style.transform = 'scale(1)'; }, 100);
+        counter.textContent = taps;
+        dots.innerHTML = `<div style="width:20px;height:20px;border-radius:50%;background:var(--indigo);opacity:.8"></div>`.repeat(taps);
+        checkBtn.style.display = 'inline-flex';
+      });
+
+      resetBtn.addEventListener('click', () => {
+        taps = 0;
+        counter.textContent = '0';
+        dots.innerHTML = '';
+        checkBtn.style.display = 'none';
+        fb.textContent = '';
+      });
+
+      checkBtn.addEventListener('click', () => {
+        if (locked) return;
+        locked = true;
+        const isOk = taps === item.count;
+        if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+        fb.style.cssText = `padding:8px 16px;border-radius:var(--r-lg);display:inline-block;background:${isOk ? 'var(--green-l)' : 'var(--rose-l)'};color:${isOk ? 'var(--green)' : 'var(--rose)'};border:1.5px solid ${isOk ? '#B6E8D0' : '#F5BFBF'}`;
+        fb.textContent = isOk ? `✓ Правильно! ${item.count} ${item.count === 1 ? 'слог' : item.count < 5 ? 'слога' : 'слогов'}` : `✗ Правильно: ${item.count}`;
+        [tapBtn, resetBtn, checkBtn].forEach(b => { if (b) b.style.pointerEvents = 'none'; });
+        setTimeout(() => { idx++; render(); }, 1400);
+      });
+    }
+    render();
+  },
+
+  // ── Подпиши картинку ────────────────────────────────────────────────────────
+  async label_image(ex, content, studentId, player) {
+    const img       = content.img || '';
+    const hotspots  = (content.hotspots || []);
+    const allLabels = (content.labels || []);
+    if (!img || !hotspots.length) {
+      player._el.innerHTML = `<div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div><div class="player-body"><div class="player-card" style="text-align:center"><div style="font-size:18px;color:var(--text-3)">Нет картинки или маркеров.</div></div></div>`;
+      bindCloseBtn(player._el); return;
+    }
+    const startTime = Date.now();
+    const solved    = {};        // hotspot.id → label string
+    const wrongOnce = new Set();
+    let selected    = null;      // currently active hotspot id
+    // Shuffle labels once
+    const shuffledLabels = [...allLabels].sort(() => Math.random() - .5);
+
+    async function render() {
+      if (!player._el) return;
+      const allDone = hotspots.every(h => solved[h.id]);
+      if (allDone) {
+        const dur     = Math.round((Date.now() - startTime) / 1000);
+        const correct = hotspots.filter(h => !wrongOnce.has(String(h.id))).length;
+        player._saveResult(studentId, ex.id, correct, hotspots.length, solved, dur);
+        PlayerTypes._showResult(player._el, player, correct, hotspots.length, dur, null);
+        return;
+      }
+
+      player._el.innerHTML = playerTopbar(ex.name, Object.keys(solved).length, hotspots.length) + `
+        <div class="player-body" style="overflow-y:auto">
+          <div class="player-card" style="max-width:680px;width:100%;text-align:center">
+            <div class="player-question" style="margin-bottom:14px">Нажми на маркер, потом выбери подпись</div>
+            <div style="position:relative;max-width:380px;margin:0 auto 16px;display:inline-block">
+              <img id="li-img" data-path="${escHtml(img)}" style="width:100%;max-height:240px;object-fit:contain;border-radius:var(--r-xl);border:2px solid var(--border);display:block">
+              ${hotspots.map((h, i) => {
+                const isSolved = !!solved[h.id];
+                const isSel    = selected === h.id;
+                const bg       = isSolved ? 'var(--green)' : 'var(--indigo)';
+                const scale    = isSel ? 'translate(-50%,-50%) scale(1.3)' : 'translate(-50%,-50%) scale(1)';
+                return `<div class="li-marker" data-id="${escHtml(h.id)}" style="
+                  position:absolute;left:${h.x}%;top:${h.y}%;
+                  transform:${scale};
+                  width:26px;height:26px;border-radius:50%;
+                  background:${bg};border:3px solid #fff;
+                  box-shadow:0 2px 8px rgba(91,91,214,.4);
+                  cursor:${isSolved ? 'default' : 'pointer'};
+                  pointer-events:${isSolved ? 'none' : 'auto'};
+                  display:flex;align-items:center;justify-content:center;
+                  transition:transform .15s,background .15s">
+                  <span style="color:#fff;font-size:11px;font-weight:900">${i + 1}</span>
+                  ${isSolved ? `<div style="position:absolute;background:var(--indigo);color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);pointer-events:none">${escHtml(solved[h.id])}</div>` : ''}
+                </div>`;
+              }).join('')}
+            </div>
+            <div id="hs-hint" style="font-size:13px;font-weight:700;color:var(--text-3);text-align:center;margin-bottom:12px">
+              ${selected ? `Маркер ${hotspots.findIndex(h => String(h.id) === selected) + 1} выбран — нажми подпись` : 'Выбери маркер на картинке'}
+            </div>
+            <div id="li-labels" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+              ${shuffledLabels.map((l, li) => {
+                const isPlaced = Object.values(solved).includes(l);
+                return `<div class="li-lbl" data-li="${li}" data-lbl="${escHtml(l)}" style="
+                  padding:8px 16px;border-radius:var(--r-lg);border:2px solid var(--border);
+                  background:var(--surface);font-size:14px;font-weight:700;
+                  cursor:${isPlaced ? 'default' : 'pointer'};
+                  opacity:${isPlaced ? '.3' : '1'};
+                  pointer-events:${isPlaced ? 'none' : 'auto'};
+                  transition:all .15s">${escHtml(l)}</div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>`;
+
+      bindCloseBtn(player._el);
+      if (!player._el) return;
+      await loadPlayerImages(player._el);
+      if (!player._el) return;
+
+      // Marker tap
+      player._el.querySelectorAll('.li-marker').forEach(m => {
+        m.addEventListener('click', () => { selected = m.dataset.id; render(); });
+      });
+
+      // Label tap
+      player._el.querySelectorAll('.li-lbl').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!selected) return;
+          const lbl  = btn.dataset.lbl;
+          const hs   = hotspots.find(h => String(h.id) === selected);
+          const isOk = hs && hs.label === lbl;
+          if (isOk) {
+            solved[selected] = lbl; selected = null; Sound.success(); render();
+          } else {
+            // Border flash — как в референсе (не shake)
+            wrongOnce.add(selected); Sound.error();
+            const origBorder = btn.style.borderColor;
+            btn.style.borderColor = 'var(--rose)';
+            btn.style.background = 'var(--rose-l)';
+            setTimeout(() => {
+              if (btn && btn.isConnected) { btn.style.borderColor = origBorder; btn.style.background = ''; }
+            }, 700);
+          }
+        });
+      });
+    }
+    render();
+  },
+
+  // ── Да / Нет ────────────────────────────────────────────────────────────────
+  async yes_no(ex, content, studentId, player) {
+    const question = content.question || '';
+    const items    = (content.items || []);
+    if (!items.length) {
+      player._el.innerHTML = `<div class="player-topbar"><button class="btn btn-ghost btn-sm player-close-btn">Закрыть</button></div><div class="player-body"><div class="player-card" style="text-align:center"><div style="font-size:18px;color:var(--text-3)">Нет карточек.</div></div></div>`;
+      bindCloseBtn(player._el); return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const startTime = Date.now();
+
+    async function render() {
+      if (!player._el) return;
+      if (idx >= shuffled.length) {
+        const dur = Math.round((Date.now() - startTime) / 1000);
+        player._saveResult(studentId, ex.id, correct, shuffled.length, [], dur);
+        PlayerTypes._showResult(player._el, player, correct, shuffled.length, dur, null);
+        return;
+      }
+      const item = shuffled[idx];
+      player._el.innerHTML = playerTopbar(ex.name, idx, shuffled.length) + `
+        <div class="player-body" style="overflow-y:auto">
+          <div class="player-card" style="max-width:480px;width:100%;text-align:center">
+            ${question ? `<div class="player-question" style="margin-bottom:8px">${escHtml(question)}</div>` : ''}
+            <div id="yn-card" style="
+              width:240px;height:180px;border:2px solid var(--border);border-radius:var(--r-2xl);
+              background:var(--surface-2);display:flex;flex-direction:column;
+              align-items:center;justify-content:center;gap:12px;margin:0 auto 24px;
+              transition:transform .2s,border-color .2s">
+              ${item.img
+                ? `<img data-path="${escHtml(item.img)}" style="height:110px;object-fit:contain;border-radius:var(--r-lg)">`
+                : `<div style="font-size:60px;line-height:1">${escHtml(item.label || '')}</div>`
+              }
+              ${item.label && item.img ? `<div style="font-size:14px;font-weight:700;color:var(--text-2)">${escHtml(item.label)}</div>` : ''}
+            </div>
+            <div id="yn-fb" style="text-align:center;min-height:20px;font-size:14px;font-weight:700;margin-bottom:16px"></div>
+            <div style="display:flex;gap:20px;justify-content:center">
+              <button class="yn-yes" data-ans="true" style="width:120px;height:60px;border-radius:var(--r-xl);background:var(--green-l);color:var(--green);border:2px solid var(--green);cursor:pointer;font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">✓ Да</button>
+              <button class="yn-no"  data-ans="false" style="width:120px;height:60px;border-radius:var(--r-xl);background:var(--rose-l);color:var(--rose);border:2px solid var(--rose);cursor:pointer;font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">✗ Нет</button>
+            </div>
+          </div>
+        </div>`;
+      bindCloseBtn(player._el);
+      if (!player._el) return;
+      await loadPlayerImages(player._el);
+      if (!player._el) return;
+
+      player._el.querySelectorAll('.yn-yes,.yn-no').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const chosen = btn.dataset.ans === 'true';
+          const isOk   = chosen === item.answer;
+          if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+
+          // Tilt animation — как в референсе
+          const card = player._el.querySelector('#yn-card');
+          if (card) {
+            card.style.transform = chosen
+              ? 'rotate(-6deg) translateX(-10px)'
+              : 'rotate(6deg) translateX(10px)';
+            card.style.borderColor = isOk ? 'var(--green)' : 'var(--rose)';
+          }
+
+          const fb = player._el.querySelector('#yn-fb');
+          if (fb) { fb.style.color = isOk ? 'var(--green)' : 'var(--rose)'; fb.textContent = isOk ? '✓ Правильно!' : '✗ Нет…'; }
+
+          player._el.querySelectorAll('.yn-yes,.yn-no').forEach(b => b.style.pointerEvents = 'none');
+          setTimeout(() => { idx++; render(); }, 700);
+        });
+      });
+    }
+    render();
+  },
+
 });
 

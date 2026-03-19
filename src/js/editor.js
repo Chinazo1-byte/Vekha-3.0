@@ -315,11 +315,11 @@ const EditorTypes = {
       let imgA = '', imgB = '';
       document.getElementById('fp-a-img-btn').onclick = () => pickImage((p, d) => {
         imgA = p;
-        document.getElementById('fp-a-img-p').innerHTML = `<img src="${d}" style="max-height:70px;border-radius:6px">`;
+        document.getElementById('fp-a-img-p').innerHTML = `<img src="${d}" style="max-height:110px;border-radius:6px">`;
       });
       document.getElementById('fp-b-img-btn').onclick = () => pickImage((p, d) => {
         imgB = p;
-        document.getElementById('fp-b-img-p').innerHTML = `<img src="${d}" style="max-height:70px;border-radius:6px">`;
+        document.getElementById('fp-b-img-p').innerHTML = `<img src="${d}" style="max-height:110px;border-radius:6px">`;
       });
 
       document.getElementById('fp-add-btn').onclick = () => {
@@ -343,12 +343,12 @@ const EditorTypes = {
           <button class="item-delete" data-i="${i}">${Icons.trash}</button>
           <div style="display:flex;align-items:center;gap:10px;flex:1">
             <div style="text-align:center;flex:1">
-              ${pair.a_img ? `<img data-path="${escHtml(pair.a_img)}" class="lazy-img" style="max-height:60px;border-radius:6px">` : ''}
+              ${pair.a_img ? `<img data-path="${escHtml(pair.a_img)}" class="lazy-img" style="max-height:110px;border-radius:6px">` : ''}
               <div style="font-size:13.5px;font-weight:600">${escHtml(pair.a_text)||'—'}</div>
             </div>
             <div style="color:var(--text-3)">↔</div>
             <div style="text-align:center;flex:1">
-              ${pair.b_img ? `<img data-path="${escHtml(pair.b_img)}" class="lazy-img" style="max-height:60px;border-radius:6px">` : ''}
+              ${pair.b_img ? `<img data-path="${escHtml(pair.b_img)}" class="lazy-img" style="max-height:110px;border-radius:6px">` : ''}
               <div style="font-size:13.5px;font-weight:600">${escHtml(pair.b_text)||'—'}</div>
             </div>
           </div>
@@ -416,12 +416,12 @@ const EditorTypes = {
       document.getElementById('fpv2-a-img-btn').onclick = () => pickImage((p, d) => {
         imgA = p;
         document.getElementById('fpv2-a-img-p').innerHTML =
-          `<img src="${d}" style="max-height:70px;border-radius:6px;display:block">`;
+          `<img src="${d}" style="max-height:110px;border-radius:6px;display:block">`;
       });
       document.getElementById('fpv2-b-img-btn').onclick = () => pickImage((p, d) => {
         imgB = p;
         document.getElementById('fpv2-b-img-p').innerHTML =
-          `<img src="${d}" style="max-height:70px;border-radius:6px;display:block">`;
+          `<img src="${d}" style="max-height:110px;border-radius:6px;display:block">`;
       });
 
       document.getElementById('fpv2-add-btn').onclick = () => {
@@ -509,7 +509,7 @@ const EditorTypes = {
       [0,1,2,3].forEach(i => {
         document.getElementById(`oo-img-btn${i}`).onclick = () => pickImage((p, d) => {
           imgs[i] = p;
-          document.getElementById(`oo-img-p${i}`).innerHTML = `<img src="${d}" style="max-height:60px;border-radius:6px">`;
+          document.getElementById(`oo-img-p${i}`).innerHTML = `<img src="${d}" style="max-height:110px;border-radius:6px">`;
         });
       });
 
@@ -587,7 +587,7 @@ const EditorTypes = {
                 <button class="item-delete sort-del-cat" data-i="${i}">${Icons.trash}</button>
                 <div style="display:flex;flex-direction:column;gap:8px;align-items:center">
                   <!-- Картинка категории -->
-                  <div id="sort-cat-img-wrap-${i}" style="width:80px;height:80px;border-radius:var(--r-md);
+                  <div id="sort-cat-img-wrap-${i}" style="width:110px;height:110px;border-radius:var(--r-md);
                     overflow:hidden;border:2px dashed var(--border);display:flex;align-items:center;
                     justify-content:center;cursor:pointer;flex-shrink:0;background:var(--surface-2)"
                     data-cat-img-btn="${i}">
@@ -645,7 +645,7 @@ const EditorTypes = {
       document.getElementById('sort-item-img-btn').addEventListener('click', () => pickImage((p, d) => {
         newItemImg = p;
         document.getElementById('sort-item-img-p').innerHTML =
-          `<img src="${d}" style="max-height:70px;border-radius:6px">`;
+          `<img src="${d}" style="max-height:110px;border-radius:6px">`;
       }));
 
       document.getElementById('sort-add-cat').addEventListener('click', () => {
@@ -966,7 +966,7 @@ Object.assign(EditorTypes, {
               data-q="${i}">
             <div style="display:flex;gap:8px;align-items:center">
               ${task.img ? `<img src="" data-path="${escHtml(task.img)}" class="lazy-img"
-                style="width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer">`
+                style="width:110px;height:110px;object-fit:cover;border-radius:8px;cursor:pointer">`
                 : `<button class="btn btn-ghost btn-sm cnt-pick" data-i="${i}">🖼 Картинка</button>`}
               <div style="display:flex;flex-direction:column;gap:6px">
                 <label class="form-label">Правильный ответ</label>
@@ -1101,7 +1101,7 @@ Object.assign(EditorTypes, {
             <input class="input-field" value="${escHtml(stmt.text||'')}" placeholder="Утверждение: «Кошка — это рыба»"
               data-t="${i}">
             ${stmt.img ? `<img src="" data-path="${escHtml(stmt.img)}" class="lazy-img"
-              style="height:80px;object-fit:contain;border-radius:8px;cursor:pointer">`
+              style="height:110px;object-fit:contain;border-radius:8px;cursor:pointer">`
               : `<button class="btn btn-ghost btn-sm tf-pick" data-i="${i}">🖼 Добавить картинку (необязательно)</button>`}
             <div style="display:flex;gap:8px">
               <button class="btn tf-ans ${stmt.correct===true?'btn-success':''}" data-i="${i}" data-val="true"
@@ -1309,6 +1309,11 @@ Object.assign(EditorTypes, {
       true_false:    ['Верно / Неверно', 'Покажите утверждение (с картинкой или без). Ребёнок выбирает — правда или нет.'],
       word_builder:  ['Собери слово', 'Буквы перемешаны, нужно нажимать в правильном порядке. Используйте картинку как подсказку.'],
       size_order:    ['По размеру', 'Порядок в редакторе — это правильный ответ. Добавьте картинки предметов разного размера.'],
+      syllables:     ['Слоги → слово', 'Добавьте слова и разбейте каждое на слоги. Ребёнок нажимает слоги по порядку, собирая слово. Можно добавить картинку-подсказку.'],
+      sound_position:['Место звука', 'Укажите звук (одну букву) и добавьте слова. Для каждого слова отметьте, где стоит звук: в начале, середине или конце.'],
+      syllable_count:['Считай слоги', 'Добавьте слова с указанием количества слогов. Ребёнок хлопает в ладоши под каждый слог и вводит ответ.'],
+      label_image:   ['Подпиши картинку', 'Загрузите изображение, нажмите «Добавить маркер» и кликните на нужное место на картинке. Введите подпись для каждого маркера.'],
+      yes_no:        ['Да / Нет', 'Введите вопрос (например: «Это живое?») и добавьте карточки. Для каждой карточки укажите правильный ответ — Да или Нет.'],
     };
     const [title, text] = hints[type] || ['Редактор', 'Добавьте элементы.'];
     sb.innerHTML = `
@@ -1433,7 +1438,7 @@ Object.assign(EditorTypes, {
             const wrap = div.querySelector('.pat-img-items');
             wrap.innerHTML = (seq.items || []).map((it, ii) => `
               <div style="position:relative;text-align:center">
-                ${it.img ? `<img data-path="${escHtml(it.img)}" class="lazy-img" style="height:60px;border-radius:6px;display:block">` : '<div style="width:60px;height:60px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
+                ${it.img ? `<img data-path="${escHtml(it.img)}" class="lazy-img" style="height:100px;border-radius:6px;display:block">` : '<div style="width:100px;height:100px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
                 <div style="font-size:11px;color:var(--text-2);margin-top:2px">${escHtml(it.label||'')}</div>
                 <button class="pat-rm-item" data-si="${si}" data-ii="${ii}"
                   style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--rose);color:#fff;border:none;cursor:pointer;font-size:10px;line-height:18px;text-align:center">✕</button>
@@ -1455,7 +1460,7 @@ Object.assign(EditorTypes, {
             const wrap = div.querySelector('.pat-img-opts');
             wrap.innerHTML = (seq.options || []).map((op, oi) => `
               <div style="position:relative;text-align:center">
-                ${op.img ? `<img data-path="${escHtml(op.img)}" class="lazy-img" style="height:60px;border-radius:6px;display:block">` : '<div style="width:60px;height:60px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
+                ${op.img ? `<img data-path="${escHtml(op.img)}" class="lazy-img" style="height:100px;border-radius:6px;display:block">` : '<div style="width:100px;height:100px;border:1px dashed var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-3)">нет</div>'}
                 <div style="font-size:11px;color:var(--text-2);margin-top:2px">${escHtml(op.label||'')}</div>
                 <button class="pat-rm-opt" data-si="${si}" data-oi="${oi}"
                   style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--rose);color:#fff;border:none;cursor:pointer;font-size:10px;line-height:18px;text-align:center">✕</button>
@@ -1510,51 +1515,6 @@ Object.assign(EditorTypes, {
     EditorTypes._sidebarHint('pattern');
   },
 
-  // ── История по порядку (story_order) ───────────────────────────────────────
-  // content: { items: [{label, img}] }  — delegate to sequencing editor UI
-  story_order(editor) {
-    const c = editor._content;
-    if (!c.items) c.items = [];
-    const container = editor._bodyEl;
-
-    function render() {
-      container.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Кадры истории (в правильном порядке)</label>
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:10px">Ученик будет расставлять их в нужной последовательности</div>
-          <div id="so-list"></div>
-          <button class="btn btn-ghost btn-sm" id="so-add" style="margin-top:10px">+ Добавить кадр</button>
-        </div>`;
-
-      const list = container.querySelector('#so-list');
-      c.items.forEach((item, i) => {
-        const div = document.createElement('div');
-        div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-lg);padding:14px;margin-bottom:10px;position:relative;display:flex;gap:12px;align-items:flex-start';
-        div.innerHTML = `
-          <div style="font-size:14px;font-weight:700;color:var(--indigo);min-width:20px;margin-top:4px">${i+1}</div>
-          <div style="flex:1">
-            <input class="input-field so-label" data-i="${i}" value="${escHtml(item.label||item.text||'')}" placeholder="Описание кадра" style="margin-bottom:8px">
-            <div class="img-picker-wrap" data-i="${i}">
-              ${item.img ? `<img src="" data-path="${escHtml(item.img)}" class="img-picker-thumb lazy-img" style="height:80px;object-fit:contain;border-radius:var(--r-md);margin-bottom:6px">` : ''}
-              <button class="btn btn-ghost btn-sm so-img" data-i="${i}">🖼 ${item.img ? 'Сменить' : 'Добавить'} картинку</button>
-            </div>
-          </div>
-          <button class="item-delete" data-i="${i}" style="opacity:1">✕</button>`;
-        list.appendChild(div);
-        div.querySelector('.so-label').addEventListener('input', e => { c.items[i].label = e.target.value; });
-        div.querySelector('.so-img').addEventListener('click', async () => {
-          const p = await window.db.files.pickImage();
-          if (p) { c.items[i].img = p; render(); }
-        });
-        div.querySelector('.item-delete').addEventListener('click', () => { c.items.splice(i,1); render(); });
-      });
-      loadLazyImages(list);
-      container.querySelector('#so-add').addEventListener('click', () => { c.items.push({label:'',img:''}); render(); });
-    }
-    render();
-    EditorTypes._sidebarHint('story_order');
-  },
-
   // ── Слово → картинка (word_to_pic) ─────────────────────────────────────────
   // content: { items: [{word, pics:[{image, text, correct}]}] }
   word_to_pic(editor) {
@@ -1594,7 +1554,7 @@ Object.assign(EditorTypes, {
           const pd = document.createElement('div');
           pd.style.cssText = 'background:var(--surface);border:2px solid '+(pic.correct?'var(--green)':'var(--border)')+';border-radius:var(--r-lg);padding:10px;text-align:center;min-width:80px';
           pd.innerHTML = `
-            ${pic.image ? `<img src="" data-path="${escHtml(pic.image)}" class="lazy-img" style="height:60px;object-fit:contain;border-radius:var(--r-md);display:block;margin:0 auto 6px">` : '<div style="height:60px;display:flex;align-items:center;justify-content:center;color:var(--text-3)">🖼</div>'}
+            ${pic.image ? `<img src="" data-path="${escHtml(pic.image)}" class="lazy-img" style="height:100px;object-fit:contain;border-radius:var(--r-md);display:block;margin:0 auto 6px">` : '<div style="height:100px;display:flex;align-items:center;justify-content:center;color:var(--text-3)">🖼</div>'}
             <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 6px;margin-bottom:4px">Выбрать</button><br>
             <label style="font-size:11px;cursor:pointer"><input type="radio" name="wtp-correct-${ti}" ${pic.correct?'checked':''}> Правильная</label>
             <button class="btn btn-ghost btn-sm" style="color:var(--rose);font-size:10px;padding:2px 4px">✕</button>`;
@@ -1732,7 +1692,7 @@ Object.assign(EditorTypes, {
             <input class="input-field" value="${escHtml(lt.letter||'')}" style="width:46px;text-align:center;font-size:20px;font-weight:700;text-transform:uppercase;padding:4px">
             <label style="font-size:10px;cursor:pointer"><input type="radio" name="fs-correct-${ii}" ${lt.correct?'checked':''}> ✓</label>
             <button style="font-size:10px;color:var(--rose);background:none;border:none;cursor:pointer">✕</button>`;
-          ld.querySelector('input[type=text]').addEventListener('input', e => { item.letters[li].letter = e.target.value.toUpperCase().charAt(0); });
+          ld.querySelector('input.input-field').addEventListener('input', e => { item.letters[li].letter = e.target.value.toUpperCase().charAt(0); });
           ld.querySelector('input[type=radio]').addEventListener('change', () => {
             item.letters.forEach((l,i) => l.correct = (i===li)); render();
           });
@@ -1810,80 +1770,6 @@ Object.assign(EditorTypes, {
     render();
     EditorTypes._sidebarHint('compare');
   },
-
-  // ── Назови эмоцию (emotion_match) ──────────────────────────────────────────
-  // content: { tasks: [{image, situation, emotions:[{label, correct}]}] }
-  emotion_match(editor) {
-    const c = editor._content;
-    if (!c.tasks) c.tasks = [];
-    const container = editor._bodyEl;
-
-    function render() {
-      container.innerHTML = `
-        <div class="form-group">
-          <label class="form-label">Задания на эмоции</label>
-          <div id="em-list"></div>
-          <button class="btn btn-ghost btn-sm" id="em-add" style="margin-top:10px">+ Добавить задание</button>
-        </div>`;
-
-      const list = container.querySelector('#em-list');
-      c.tasks.forEach((task, ti) => {
-        if (!task.emotions) task.emotions = [];
-        const div = document.createElement('div');
-        div.style.cssText = 'background:var(--surface-2);border-radius:var(--r-lg);padding:14px;margin-bottom:12px;position:relative';
-        div.innerHTML = `
-          <button class="item-delete" style="opacity:1;position:absolute;top:10px;right:10px">✕</button>
-          <div class="form-row form-row-2" style="margin-bottom:10px">
-            <div class="form-group">
-              <label class="form-label" style="font-size:12px">Картинка персонажа</label>
-              ${task.image ? `<img src="" data-path="${escHtml(task.image)}" class="lazy-img" style="height:70px;object-fit:contain;border-radius:var(--r-md);margin-bottom:6px;display:block">` : ''}
-              <button class="btn btn-ghost btn-sm em-img">🖼 ${task.image ? 'Сменить':'Выбрать'}</button>
-            </div>
-            <div class="form-group">
-              <label class="form-label" style="font-size:12px">Ситуация (необязательно)</label>
-              <textarea class="input-field em-sit" rows="3" placeholder="Кот потерял мячик...">${escHtml(task.situation||'')}</textarea>
-            </div>
-          </div>
-          <label class="form-label" style="font-size:12px">Варианты эмоций (отметьте правильную)</label>
-          <div class="em-emos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
-          <button class="btn btn-ghost btn-sm em-add-emo">+ Эмоция</button>`;
-        list.appendChild(div);
-        loadLazyImages(div);
-
-        div.querySelector('.em-img').addEventListener('click', async () => {
-          const p = await window.db.files.pickImage(); if (p) { c.tasks[ti].image = p; render(); }
-        });
-        div.querySelector('.em-sit').addEventListener('input', e => { c.tasks[ti].situation = e.target.value; });
-        div.querySelector('.item-delete').addEventListener('click', () => { c.tasks.splice(ti,1); render(); });
-
-        const emosWrap = div.querySelector('.em-emos');
-        task.emotions.forEach((emo, ei) => {
-          const ed = document.createElement('div');
-          ed.style.cssText = 'background:var(--surface);border:2px solid '+(emo.correct?'var(--green)':'var(--border)')+';border-radius:var(--r-md);padding:8px 12px;display:flex;flex-direction:column;align-items:center;gap:4px';
-          ed.innerHTML = `
-            <input class="input-field" value="${escHtml(emo.label||'')}" placeholder="Радость" style="width:110px;font-size:14px;text-align:center;padding:6px">
-            <label style="font-size:11px;cursor:pointer"><input type="radio" name="em-correct-${ti}" ${emo.correct?'checked':''}> ✓ Верная</label>
-            <button style="font-size:10px;color:var(--rose);background:none;border:none;cursor:pointer">✕</button>`;
-          ed.querySelector('input[type=text]').addEventListener('input', e => { task.emotions[ei].label = e.target.value; });
-          ed.querySelector('input[type=radio]').addEventListener('change', () => {
-            task.emotions.forEach((e,i) => e.correct = (i===ei)); render();
-          });
-          ed.querySelector('button').addEventListener('click', () => { task.emotions.splice(ei,1); render(); });
-          emosWrap.appendChild(ed);
-        });
-
-        div.querySelector('.em-add-emo').addEventListener('click', () => {
-          task.emotions.push({ label:'', correct: task.emotions.length===0 }); render();
-        });
-      });
-      container.querySelector('#em-add').addEventListener('click', () => {
-        c.tasks.push({ image:'', situation:'', emotions:[{label:'',correct:true},{label:'',correct:false}] });
-        render();
-      });
-    }
-    render();
-    EditorTypes._sidebarHint('emotion_match');
-  },
 });
 
 // ── ЕДИНЫЙ роутер редактора — все 18 типов ────────────────────────────────────
@@ -1901,12 +1787,15 @@ Object.assign(EditorTypes, {
       word_builder:  () => EditorTypes.word_builder(this),
       size_order:    () => EditorTypes.size_order(this),
       pattern:       () => EditorTypes.pattern(this),
-      story_order:   () => EditorTypes.story_order(this),
       word_to_pic:   () => EditorTypes.word_to_pic(this),
       fill_blank:    () => EditorTypes.fill_blank(this),
       first_sound:   () => EditorTypes.first_sound(this),
       compare:       () => EditorTypes.compare(this),
-      emotion_match: () => EditorTypes.emotion_match(this),
+      syllables:     () => EditorTypes.syllables(this),
+      sound_position:() => EditorTypes.sound_position(this),
+      syllable_count:() => EditorTypes.syllable_count(this),
+      label_image:   () => EditorTypes.label_image(this),
+      yes_no:        () => EditorTypes.yes_no(this),
     };
     // Add the 4 base types to the map as well
     const base = {
@@ -1925,13 +1814,567 @@ Object.assign(EditorTypes, {
   };
 })();
 
+
+// ── НОВЫЕ ТИПЫ: Слоговой анализ и сопутствующие ──────────────────────────────
+Object.assign(EditorTypes, {
+
+  // ── Слоги → слово (syllables) ────────────────────────────────────────────
+  // content: { items: [{word, syllables:['ба','боч','ка'], img?}] }
+  syllables(editor) {
+    const c = editor._content;
+    if (!c.items) c.items = [];
+
+    function splitIntoSyllables(word) {
+      // Простое авторазбиение по гласным (только для подсказки)
+      const vowels = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
+      let result = [], cur = '';
+      for (let i = 0; i < word.length; i++) {
+        cur += word[i];
+        if (vowels.includes(word[i]) && i < word.length - 1) {
+          result.push(cur); cur = '';
+        }
+      }
+      if (cur) result.push(cur);
+      return result.length > 1 ? result : [word];
+    }
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div class="editor-section-title">Слова
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — для каждого укажите слоги в правильном порядке</span>
+        </div>
+        <div id="syl-items" style="display:flex;flex-direction:column;gap:12px;margin-bottom:14px"></div>
+        <button class="btn btn-ghost btn-sm" id="syl-add">+ Добавить слово</button>`;
+
+      const container = main.querySelector('#syl-items');
+      c.items.forEach((item, i) => {
+        const syls = item.syllables || [];
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="flex:1">
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                <input class="input-field syl-word" data-i="${i}"
+                  value="${escHtml(item.word||'')}" placeholder="Слово (напр: бабочка)"
+                  style="flex:1;font-size:15px;font-weight:700">
+                <button class="btn btn-ghost btn-sm syl-auto" data-i="${i}"
+                  title="Авторазбиение на слоги" style="flex-shrink:0">⚡ Авто</button>
+              </div>
+              <div style="font-size:12px;color:var(--text-3);margin-bottom:6px;font-weight:600">
+                Слоги по порядку — нажимайте для удаления, добавляйте через поле:
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px" id="syl-chips-${i}">
+                ${syls.map((s, si) => `
+                  <div class="syl-chip" data-i="${i}" data-si="${si}"
+                    style="padding:6px 14px;border:2px solid var(--indigo);border-radius:var(--r-md);
+                      background:var(--indigo-l);font-size:16px;font-weight:800;
+                      cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--indigo)">
+                    ${escHtml(s)}
+                    <span style="font-size:10px;opacity:.6">✕</span>
+                  </div>`).join('')}
+                <input class="input-field syl-new-chip" data-i="${i}"
+                  placeholder="+ слог" style="width:80px;padding:6px 8px;font-size:14px">
+              </div>
+              ${item.img
+                ? `<div style="display:flex;align-items:center;gap:8px">
+                    <img src="" data-path="${escHtml(item.img)}" class="lazy-img"
+                      style="width:52px;height:52px;object-fit:contain;border-radius:var(--r-md);border:1.5px solid var(--border)">
+                    <button class="btn btn-ghost btn-sm syl-img" data-i="${i}">🖼 Сменить</button>
+                  </div>`
+                : `<button class="btn btn-ghost btn-sm syl-img" data-i="${i}">🖼 Добавить картинку</button>`}
+            </div>
+            <button class="item-delete syl-del" data-i="${i}">×</button>
+          </div>`;
+        container.appendChild(div);
+      });
+      loadLazyImages(container);
+
+      container.querySelectorAll('.syl-word').forEach(inp => {
+        inp.addEventListener('input', e => { c.items[+e.target.dataset.i].word = e.target.value; });
+      });
+      container.querySelectorAll('.syl-auto').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = +btn.dataset.i;
+          const word = c.items[i].word || '';
+          if (!word) { toast('Сначала введите слово', 'error'); return; }
+          c.items[i].syllables = splitIntoSyllables(word.toLowerCase());
+          render();
+        });
+      });
+      container.querySelectorAll('.syl-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const i = +chip.dataset.i, si = +chip.dataset.si;
+          c.items[i].syllables.splice(si, 1);
+          render();
+        });
+      });
+      container.querySelectorAll('.syl-new-chip').forEach(inp => {
+        inp.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const i = +inp.dataset.i;
+            const val = inp.value.trim();
+            if (val) {
+              if (!c.items[i].syllables) c.items[i].syllables = [];
+              c.items[i].syllables.push(val);
+              render();
+            }
+          }
+        });
+      });
+      container.querySelectorAll('.syl-img').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const p = await window.db.files.pickImage();
+          if (p) { c.items[+btn.dataset.i].img = p; render(); }
+        });
+      });
+      container.querySelectorAll('.syl-del').forEach(btn => {
+        btn.addEventListener('click', () => { c.items.splice(+btn.dataset.i, 1); render(); });
+      });
+      main.querySelector('#syl-add').addEventListener('click', () => {
+        c.items.push({ word: '', syllables: [], img: '' });
+        render();
+      });
+    }
+    render();
+    EditorTypes._sidebarHint('syllables');
+  },
+
+  // ── Место звука (sound_position) ─────────────────────────────────────────
+  // content: { sound, items: [{word, img, position:'start'|'middle'|'end'}] }
+  sound_position(editor) {
+    const c = editor._content;
+    if (!c.sound) c.sound = '';
+    if (!c.items) c.items = [];
+    const POS = { start: 'Начало', middle: 'Середина', end: 'Конец' };
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:20px">
+          <div style="font-family:var(--font-title);font-size:13px;font-weight:700;color:var(--text-2);white-space:nowrap">
+            Изучаемый звук:
+          </div>
+          <input class="input-field" id="sp-sound" value="${escHtml(c.sound)}"
+            placeholder="Ш" style="width:90px;text-align:center;font-size:22px;font-weight:900">
+          <span style="font-size:12px;color:var(--text-3)">Отображается ребёнку в заголовке задания</span>
+        </div>
+
+        <div class="editor-section-title">Слова
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — слово + картинка + положение звука</span>
+        </div>
+        <div id="sp-items" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+        <button class="btn btn-ghost btn-sm" id="sp-add">+ Добавить слово</button>`;
+
+      document.getElementById('sp-sound').addEventListener('input', e => { c.sound = e.target.value; });
+
+      const container = main.querySelector('#sp-items');
+      c.items.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="item-number">${i+1}</div>
+            ${item.img
+              ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img"
+                  style="width:56px;height:56px;object-fit:contain;border-radius:var(--r-md);
+                    border:1.5px solid var(--border);cursor:pointer" title="Сменить">`
+              : `<button class="btn btn-ghost btn-sm sp-pick-img" data-i="${i}">🖼 Картинка</button>`}
+            <input class="input-field sp-word" data-i="${i}" value="${escHtml(item.word||'')}"
+              placeholder="Слово (напр: шапка)" style="flex:1;font-size:15px;font-weight:600">
+            <div style="display:flex;gap:6px">
+              ${Object.keys(POS).map(p => `
+                <label style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+                  padding:6px 10px;border-radius:var(--r-md);border:2px solid ${item.position===p?'var(--indigo)':'var(--border)'};
+                  background:${item.position===p?'var(--indigo-l)':'var(--surface)'};
+                  font-size:11px;font-weight:700;color:${item.position===p?'var(--indigo)':'var(--text-2)'}">
+                  <input type="radio" name="sp-pos-${i}" value="${p}" ${item.position===p?'checked':''}
+                    style="display:none" class="sp-pos" data-i="${i}">
+                  ${POS[p]}
+                </label>`).join('')}
+            </div>
+            <button class="item-delete sp-del" data-i="${i}">×</button>
+          </div>`;
+        container.appendChild(div);
+      });
+      loadLazyImages(container);
+
+      container.querySelectorAll('.sp-pick-img, .lazy-img').forEach(el => {
+        el.addEventListener('click', async () => {
+          const i = +el.dataset.i ?? +[...container.querySelectorAll('.lazy-img')].indexOf(el);
+          const p = await window.db.files.pickImage();
+          if (p) { c.items[i].img = p; render(); }
+        });
+      });
+      container.querySelectorAll('.sp-word').forEach(inp => {
+        inp.addEventListener('input', e => { c.items[+e.target.dataset.i].word = e.target.value; });
+      });
+      container.querySelectorAll('.sp-pos').forEach(radio => {
+        radio.closest('label').addEventListener('click', () => {
+          c.items[+radio.dataset.i].position = radio.value;
+          render();
+        });
+      });
+      container.querySelectorAll('.sp-del').forEach(btn => {
+        btn.addEventListener('click', () => { c.items.splice(+btn.dataset.i, 1); render(); });
+      });
+      main.querySelector('#sp-add').addEventListener('click', () => {
+        c.items.push({ word: '', img: '', position: 'start' });
+        render();
+      });
+    }
+    render();
+    EditorTypes._sidebarHint('sound_position');
+  },
+
+  // ── Считай слоги (syllable_count) ────────────────────────────────────────
+  // content: { items: [{word, img, count}] }
+  syllable_count(editor) {
+    const c = editor._content;
+    if (!c.items) c.items = [];
+
+    function countSyllables(word) {
+      return (word.match(/[аеёиоуыэюяАЕЁИОУЫЭЮЯ]/g) || []).length || 1;
+    }
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div class="editor-section-title">Слова
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — слово + картинка + количество слогов</span>
+        </div>
+        <div id="sc-items" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+        <button class="btn btn-ghost btn-sm" id="sc-add">+ Добавить слово</button>`;
+
+      const container = main.querySelector('#sc-items');
+      c.items.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="item-number">${i+1}</div>
+            ${item.img
+              ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img"
+                  style="width:56px;height:56px;object-fit:contain;border-radius:var(--r-md);
+                    border:1.5px solid var(--border);cursor:pointer" title="Сменить">`
+              : `<button class="btn btn-ghost btn-sm sc-pick-img" data-i="${i}">🖼 Картинка</button>`}
+            <input class="input-field sc-word" data-i="${i}" value="${escHtml(item.word||'')}"
+              placeholder="Слово (напр: собака)" style="flex:1;font-size:15px;font-weight:600">
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <span style="font-size:12px;font-weight:700;color:var(--text-3)">Слогов:</span>
+              <button class="sc-cnt-dec" data-i="${i}"
+                style="width:28px;height:28px;border:1.5px solid var(--border);border-radius:var(--r-md);
+                  background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;
+                  display:flex;align-items:center;justify-content:center">−</button>
+              <span class="sc-cnt-val" data-i="${i}"
+                style="font-family:var(--font-title);font-size:22px;font-weight:900;
+                  color:var(--indigo);min-width:28px;text-align:center">${item.count||1}</span>
+              <button class="sc-cnt-inc" data-i="${i}"
+                style="width:28px;height:28px;border:1.5px solid var(--border);border-radius:var(--r-md);
+                  background:var(--surface);cursor:pointer;font-size:16px;font-weight:700;
+                  display:flex;align-items:center;justify-content:center">+</button>
+              <button class="btn btn-ghost btn-sm sc-auto" data-i="${i}" title="Подсчёт по гласным">⚡</button>
+            </div>
+            <button class="item-delete sc-del" data-i="${i}">×</button>
+          </div>`;
+        container.appendChild(div);
+      });
+      loadLazyImages(container);
+
+      container.querySelectorAll('.sc-pick-img, .lazy-img').forEach(el => {
+        el.addEventListener('click', async () => {
+          const imgs = [...container.querySelectorAll('.lazy-img')];
+          const idx = el.classList.contains('lazy-img') ? imgs.indexOf(el) : +el.dataset.i;
+          const p = await window.db.files.pickImage();
+          if (p) { c.items[idx].img = p; render(); }
+        });
+      });
+      container.querySelectorAll('.sc-word').forEach(inp => {
+        inp.addEventListener('input', e => { c.items[+e.target.dataset.i].word = e.target.value; });
+      });
+      container.querySelectorAll('.sc-cnt-dec').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = +btn.dataset.i;
+          c.items[i].count = Math.max(1, (c.items[i].count || 1) - 1);
+          render();
+        });
+      });
+      container.querySelectorAll('.sc-cnt-inc').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = +btn.dataset.i;
+          c.items[i].count = Math.min(8, (c.items[i].count || 1) + 1);
+          render();
+        });
+      });
+      container.querySelectorAll('.sc-auto').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const i = +btn.dataset.i;
+          const word = c.items[i].word || '';
+          if (!word) { toast('Сначала введите слово', 'error'); return; }
+          c.items[i].count = countSyllables(word);
+          render();
+        });
+      });
+      container.querySelectorAll('.sc-del').forEach(btn => {
+        btn.addEventListener('click', () => { c.items.splice(+btn.dataset.i, 1); render(); });
+      });
+      main.querySelector('#sc-add').addEventListener('click', () => {
+        c.items.push({ word: '', img: '', count: 1 });
+        render();
+      });
+    }
+    render();
+    EditorTypes._sidebarHint('syllable_count');
+  },
+
+  // ── Подпиши картинку (label_image) ───────────────────────────────────────
+  // content: { img, hotspots:[{id, x, y, label}], labels:[str] }
+  label_image(editor) {
+    const c = editor._content;
+    if (!c.hotspots) c.hotspots = [];
+    if (!c.labels)   c.labels   = [];
+
+    let imgDataUrl = null;
+    let addingMode = false;
+
+    async function loadImgPreview() {
+      if (!c.img) return;
+      const d = await window.db.files.getImageData(c.img);
+      if (d) imgDataUrl = d;
+    }
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div style="display:flex;gap:16px;align-items:flex-start;margin-bottom:20px">
+          <div style="flex:1">
+            <div class="editor-section-title" style="margin-bottom:8px">Изображение</div>
+            ${c.img
+              ? `<div style="position:relative;display:inline-block">
+                  <img id="li-preview" src="" data-path="${escHtml(c.img)}"
+                    class="lazy-img" style="max-height:260px;max-width:100%;object-fit:contain;
+                      border-radius:var(--r-xl);border:1.5px solid var(--border);display:block;cursor:crosshair"
+                    title="Нажмите для добавления маркера">
+                  <div id="li-hotspots"></div>
+                </div>
+                <div style="margin-top:8px;display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-sm" id="li-change-img">🖼 Сменить</button>
+                  <button class="btn ${addingMode?'btn-primary':'btn-ghost'} btn-sm" id="li-add-mode">
+                    ${addingMode?'✓ Нажмите на картинку':'+ Добавить маркер'}
+                  </button>
+                </div>`
+              : `<button class="btn btn-ghost btn-sm" id="li-pick-img">🖼 Выбрать изображение</button>`}
+          </div>
+        </div>
+
+        <div class="editor-section-title">Маркеры и подписи
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — введите текст подписи для каждой точки</span>
+        </div>
+        <div id="li-markers" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
+        ${c.hotspots.length > 0
+          ? `<div style="font-size:12px;color:var(--text-3);margin-top:8px">
+              Позиция X/Y в % от ширины/высоты изображения</div>` : ''}`;
+
+      // Pick image button
+      const pickBtn = main.querySelector('#li-pick-img, #li-change-img');
+      if (pickBtn) {
+        pickBtn.addEventListener('click', async () => {
+          const p = await window.db.files.pickImage();
+          if (p) { c.img = p; c.hotspots = []; imgDataUrl = null; render(); }
+        });
+      }
+
+      // Add marker mode toggle
+      const addModeBtn = main.querySelector('#li-add-mode');
+      if (addModeBtn) {
+        addModeBtn.addEventListener('click', () => { addingMode = !addingMode; render(); });
+      }
+
+      // Image click → add hotspot
+      const preview = main.querySelector('#li-preview');
+      if (preview) {
+        loadLazyImages(main);
+        preview.addEventListener('click', e => {
+          if (!addingMode) return;
+          const rect = preview.getBoundingClientRect();
+          const x = Math.round((e.clientX - rect.left) / rect.width * 100);
+          const y = Math.round((e.clientY - rect.top)  / rect.height * 100);
+          const id = Date.now();
+          c.hotspots.push({ id, x, y, label: '' });
+          addingMode = false;
+          render();
+        });
+
+        // Render hotspot dots on image
+        const dotsWrap = main.querySelector('#li-hotspots');
+        if (dotsWrap) {
+          dotsWrap.style.cssText = 'position:absolute;inset:0;pointer-events:none';
+          c.hotspots.forEach((hs, hi) => {
+            const dot = document.createElement('div');
+            dot.style.cssText = `position:absolute;left:${hs.x}%;top:${hs.y}%;
+              width:24px;height:24px;border-radius:50%;
+              background:var(--indigo);border:2.5px solid #fff;
+              box-shadow:0 2px 6px rgba(91,91,214,.4);
+              transform:translate(-50%,-50%);
+              display:flex;align-items:center;justify-content:center;
+              font-size:11px;font-weight:900;color:#fff;pointer-events:none`;
+            dot.textContent = hi + 1;
+            dotsWrap.appendChild(dot);
+          });
+        }
+      }
+
+      // Markers list
+      const markersWrap = main.querySelector('#li-markers');
+      c.hotspots.forEach((hs, hi) => {
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div style="width:26px;height:26px;border-radius:50%;background:var(--indigo);
+              color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;
+              justify-content:center;flex-shrink:0">${hi+1}</div>
+            <input class="input-field li-label" data-hi="${hi}"
+              value="${escHtml(hs.label)}" placeholder="Подпись (напр: Голова)"
+              style="flex:1;font-size:14px">
+            <span style="font-size:11px;color:var(--text-3);white-space:nowrap">
+              x:${hs.x}% y:${hs.y}%
+            </span>
+            <button class="item-delete li-del" data-hi="${hi}">×</button>
+          </div>`;
+        markersWrap.appendChild(div);
+      });
+
+      markersWrap.querySelectorAll('.li-label').forEach(inp => {
+        inp.addEventListener('input', e => {
+          c.hotspots[+e.target.dataset.hi].label = e.target.value;
+          // sync labels array
+          c.labels = c.hotspots.map(h => h.label).filter(Boolean);
+        });
+      });
+      markersWrap.querySelectorAll('.li-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          c.hotspots.splice(+btn.dataset.hi, 1);
+          c.labels = c.hotspots.map(h => h.label).filter(Boolean);
+          render();
+        });
+      });
+    }
+    render();
+    EditorTypes._sidebarHint('label_image');
+  },
+
+  // ── Да / Нет (yes_no) ────────────────────────────────────────────────────
+  // content: { question, items:[{label, img, answer: true|false}] }
+  yes_no(editor) {
+    const c = editor._content;
+    if (!c.question) c.question = '';
+    if (!c.items)    c.items    = [];
+
+    function render() {
+      const main = document.getElementById('editor-main');
+      main.innerHTML = `
+        <div class="editor-section-title">Вопрос / Критерий
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — отображается ребёнку над карточками</span>
+        </div>
+        <input class="input-field" id="yn-question" value="${escHtml(c.question)}"
+          placeholder="Например: Это живое существо?" style="margin-bottom:20px;font-size:15px">
+
+        <div class="editor-section-title">Карточки
+          <span style="font-size:11px;font-weight:400;color:var(--text-3)"> — укажите Да или Нет для каждой</span>
+        </div>
+        <div id="yn-items" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px"></div>
+        <button class="btn btn-ghost btn-sm" id="yn-add">+ Добавить карточку</button>`;
+
+      document.getElementById('yn-question').addEventListener('input', e => {
+        c.question = e.target.value;
+      });
+
+      const container = main.querySelector('#yn-items');
+      c.items.forEach((item, i) => {
+        const isYes = item.answer === true;
+        const isNo  = item.answer === false;
+        const div = document.createElement('div');
+        div.className = 'item-card';
+        div.innerHTML = `
+          <div style="display:flex;gap:10px;align-items:center">
+            <div class="item-number">${i+1}</div>
+            ${item.img
+              ? `<img src="" data-path="${escHtml(item.img)}" class="lazy-img"
+                  style="width:56px;height:56px;object-fit:contain;border-radius:var(--r-md);
+                    border:1.5px solid var(--border);cursor:pointer" title="Сменить">`
+              : `<button class="btn btn-ghost btn-sm yn-pick-img" data-i="${i}">🖼 Картинка</button>`}
+            <input class="input-field yn-label" data-i="${i}" value="${escHtml(item.label||'')}"
+              placeholder="Название карточки" style="flex:1;font-size:14px;font-weight:600">
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;
+                padding:6px 14px;border-radius:var(--r-md);font-size:14px;font-weight:800;
+                border:2px solid ${isYes?'var(--green)':'var(--border)'};
+                background:${isYes?'var(--green-l)':'var(--surface)'};
+                color:${isYes?'var(--green)':'var(--text-3)'}">
+                <input type="radio" name="yn-ans-${i}" value="true" ${isYes?'checked':''}
+                  class="yn-ans" data-i="${i}" style="display:none">
+                ✓ Да
+              </label>
+              <label style="display:flex;align-items:center;gap:5px;cursor:pointer;
+                padding:6px 14px;border-radius:var(--r-md);font-size:14px;font-weight:800;
+                border:2px solid ${isNo?'var(--rose)':'var(--border)'};
+                background:${isNo?'var(--rose-l)':'var(--surface)'};
+                color:${isNo?'var(--rose)':'var(--text-3)'}">
+                <input type="radio" name="yn-ans-${i}" value="false" ${isNo?'checked':''}
+                  class="yn-ans" data-i="${i}" style="display:none">
+                ✗ Нет
+              </label>
+            </div>
+            <button class="item-delete yn-del" data-i="${i}">×</button>
+          </div>`;
+        container.appendChild(div);
+      });
+      loadLazyImages(container);
+
+      container.querySelectorAll('.yn-pick-img, .lazy-img').forEach(el => {
+        el.addEventListener('click', async () => {
+          const imgs = [...container.querySelectorAll('.lazy-img')];
+          const idx = el.classList.contains('lazy-img') ? imgs.indexOf(el) : +el.dataset.i;
+          const p = await window.db.files.pickImage();
+          if (p) { c.items[idx].img = p; render(); }
+        });
+      });
+      container.querySelectorAll('.yn-label').forEach(inp => {
+        inp.addEventListener('input', e => { c.items[+e.target.dataset.i].label = e.target.value; });
+      });
+      container.querySelectorAll('.yn-ans').forEach(radio => {
+        radio.closest('label').addEventListener('click', () => {
+          c.items[+radio.dataset.i].answer = radio.value === 'true';
+          render();
+        });
+      });
+      container.querySelectorAll('.yn-del').forEach(btn => {
+        btn.addEventListener('click', () => { c.items.splice(+btn.dataset.i, 1); render(); });
+      });
+      main.querySelector('#yn-add').addEventListener('click', () => {
+        c.items.push({ label: '', img: '', answer: true });
+        render();
+      });
+    }
+    render();
+    EditorTypes._sidebarHint('yes_no');
+  },
+
+});
+
 // ── Добавляем подсказки для новых типов ───────────────────────────────────────
 Object.assign(EditorTypes._hints || {}, {
   pattern:       ['Продолжи ряд', 'Введите последовательность и варианты ответа. Укажите индекс правильного варианта (0 = первый).'],
-  story_order:   ['История по порядку', 'Добавьте кадры в правильном порядке. Ученик будет их перемешивать и расставлять.'],
   word_to_pic:   ['Слово → картинка', 'Ученик видит слово и выбирает нужную картинку из нескольких вариантов.'],
   fill_blank:    ['Вставь слово', 'Используйте ___ (три подчёркивания) для обозначения пропуска в предложении.'],
   first_sound:   ['Первый звук', 'Ученик видит картинку или слово и определяет, с какой буквы оно начинается.'],
   compare:       ['Сравни', 'Введите два числа или величины. Ученик выбирает знак >, < или =.'],
-  emotion_match: ['Назови эмоцию', 'Добавьте картинку и варианты эмоций. Отметьте правильную.'],
+  syllables:     ['Слоги → слово', 'Добавьте слова: разбейте каждое на слоги. Ученик будет нажимать слоги по порядку.'],
+  sound_position:['Место звука', 'Введите слово, заданный звук и правильную позицию (начало/середина/конец).'],
+  syllable_count:['Считай слоги', 'Добавьте слова с картинками. Ученик хлопает нужное число раз.'],
+  label_image:   ['Подпиши картинку', 'Загрузите изображение, расставьте маркеры и введите подписи к ним.'],
+  yes_no:        ['Да / Нет', 'Введите вопрос и карточки. Для каждой укажите правильный ответ — Да или Нет.'],
 });

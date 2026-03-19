@@ -516,7 +516,7 @@ const SpTypes = {
               ${cards.map(c => `
                 <div class="pair-card ${matched.has(c.id)?'matched':''}" data-id="${c.id}">
                   ${matched.has(c.id)
-                    ? (c.img ? `<img data-path="${escHtml(c.img)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">` : escHtml(c.text||'✓'))
+                    ? (c.img ? `<img data-path="${escHtml(c.img)}" style="width:100%;height:100%;object-fit:contain;padding:6px;border-radius:12px">` : escHtml(c.text||'✓'))
                     : `<span style="font-size:22px;color:var(--text-3)">?</span>`}
                 </div>`).join('')}
             </div>
@@ -536,7 +536,7 @@ const SpTypes = {
           const cd = cards.find(c => c.id === cid);
           card.classList.add('flipped');
           card.innerHTML = cd.img
-            ? `<img data-path="${escHtml(cd.img)}" style="width:100%;height:100%;object-fit:cover;border-radius:12px">`
+            ? `<img data-path="${escHtml(cd.img)}" style="width:100%;height:100%;object-fit:contain;padding:6px;border-radius:12px">`
             : `<span style="font-size:15px;font-weight:600">${escHtml(cd.text||'')}</span>`;
           await loadPlayerImages(card.parentElement);
 
@@ -707,7 +707,7 @@ const SpTypes = {
               ${items.map(it => {
                 const isOdd = it.text===odd?.text && it.img===odd?.img;
                 return `<div class="player-opt" data-odd="${isOdd}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:90px;height:90px;object-fit:cover;border-radius:10px">` : ''}
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:90px;height:90px;object-fit:contain;padding:4px;border-radius:10px">` : ''}
                   ${it.text ? `<span>${escHtml(it.text)}</span>` : ''}
                 </div>`;
               }).join('')}
@@ -771,23 +771,25 @@ const SpTypes = {
               border:2px dashed var(--border-2);margin-bottom:20px" id="sp-sort-pool">
               ${shuffled.filter(it => !Object.values(placed).flat().includes(it)).map((it, i) => `
                 <div class="sort-chip-v2" data-pool-i="${i}">
-                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:120px;height:120px;object-fit:cover;border-radius:var(--r-sm)">` : ''}
+                  ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:100px;height:100px;object-fit:contain;border-radius:var(--r-sm)">` : ''}
                   ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
                 </div>`).join('')
               || '<div style="color:var(--text-3);font-size:13px;margin:auto">Все распределены ✓</div>'}
             </div>
             <!-- Корзины -->
             <div style="display:grid;grid-template-columns:repeat(${Math.min(cats.length,3)},1fr);gap:12px">
-              ${cats.map(cat => `
-                <div class="sort-bucket-v2" data-bucket="${escHtml(cat.name)}">
+              ${cats.map((cat, ci) => `
+                <div class="sort-bucket-v2 bucket-${ci % 6}" data-bucket="${escHtml(cat.name)}">
                   <div class="sb-header">
                     ${cat.img ? `<img data-path="${escHtml(cat.img)}" class="sb-img">` : ''}
                     <div class="sb-title">${escHtml(cat.name)}</div>
                   </div>
                   <div class="sb-items">
-                    ${(placed[cat.name]||[]).map(it => `
+                    ${(placed[cat.name]||[]).length === 0
+                      ? `<div class="sb-hint">↓ перетащи сюда</div>`
+                      : (placed[cat.name]||[]).map(it => `
                       <div class="sort-chip-v2 placed-chip" data-placed-cat="${escHtml(cat.name)}" style="cursor:pointer">
-                        ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:90px;height:90px;object-fit:cover;border-radius:var(--r-sm)">` : ''}
+                        ${it.img ? `<img data-path="${escHtml(it.img)}" style="width:76px;height:76px;object-fit:contain;border-radius:var(--r-sm)">` : ''}
                         ${it.text ? `<div class="sc-label">${escHtml(it.text)}</div>` : ''}
                       </div>`).join('')}
                   </div>
@@ -888,7 +890,6 @@ const SpRunner = {
         }, container, onDone),
       categories:    () => SpTypes.categories(ex, c, container, onDone),
       sequencing:    () => SpTypes.sequencing(ex, { ...c, items: norm(c.items||[]) }, container, onDone),
-      story_order:   () => SpTypes.storyOrder(ex, { ...c, items: norm(c.panels||c.items||[]) }, container, onDone),
       whats_missing: () => SpTypes.whatsMissing(ex, { ...c, items: norm(c.items||[]) }, container, onDone),
       pattern:       () => SpTypes.pattern(ex, c, container, onDone),
       word_to_pic:   () => SpTypes.wordToPic(ex, c, container, onDone),
@@ -899,7 +900,11 @@ const SpRunner = {
       size_order:    () => SpTypes.sizeOrder(ex, { ...c, items: norm(c.items||[]) }, container, onDone),
       compare:       () => SpTypes.compare(ex, c, container, onDone),
       true_false:    () => SpTypes.trueFalse(ex, c, container, onDone),
-      emotion_match: () => SpTypes.emotionMatch(ex, c, container, onDone),
+      syllables:     () => SpTypes.syllables(ex, c, container, onDone),
+      sound_position:() => SpTypes.soundPosition(ex, c, container, onDone),
+      syllable_count:() => SpTypes.syllableCount(ex, c, container, onDone),
+      label_image:   () => SpTypes.labelImage(ex, c, container, onDone),
+      yes_no:        () => SpTypes.yesNo(ex, c, container, onDone),
     };
     const fn = routes[ex.type];
     if (fn) { fn(); return true; }
@@ -956,11 +961,10 @@ Object.assign(SpTypes, {
               background:var(--surface-2);border:2px dashed var(--border);border-radius:var(--r-lg);padding:10px;margin-bottom:16px">
               ${selected.map((origIdx,pos) => {
                 const item = items[origIdx];
-                return `<div class="seq-placed" data-pos="${pos}" data-orig="${origIdx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;
-                  padding:8px;border-radius:var(--r-lg);border:2px solid var(--indigo);background:var(--indigo-l);min-width:70px;text-align:center;touch-action:none">
-                  <div style="font-size:10px;font-weight:700;color:var(--indigo)">${pos+1}</div>
-                  ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:cover;border-radius:8px">` : ''}
-                  ${item.label ? `<div style="font-size:11px;color:var(--indigo);font-weight:600">${escHtml(item.label)}</div>` : ''}
+                return `<div class="seq-placed-slot slot-${pos % 6} seq-placed" data-pos="${pos}" data-orig="${origIdx}">
+                  <div class="sl-num">${pos+1}</div>
+                  ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:contain;border-radius:8px;background:var(--surface)">` : ''}
+                  ${item.label ? `<div class="sl-label">${escHtml(item.label)}</div>` : ''}
                 </div>`;
               }).join('') || '<div style="color:var(--text-3);font-size:13px;margin:auto">Перетащи или нажимай элементы</div>'}
             </div>
@@ -971,7 +975,7 @@ Object.assign(SpTypes, {
                 return `<div class="${placed?'':'seq-opt'}" data-orig="${origIdx}" style="display:flex;flex-direction:column;align-items:center;gap:4px;
                   cursor:${placed?'default':'grab'};opacity:${placed?.2:1};padding:8px;border-radius:var(--r-lg);
                   border:2px solid var(--border);background:var(--surface);min-width:70px;text-align:center;touch-action:none">
-                  ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:cover;border-radius:8px">` : ''}
+                  ${item.img ? `<img data-path="${escHtml(item.img)}" style="width:96px;height:96px;object-fit:contain;border-radius:8px">` : ''}
                   ${item.label ? `<div style="font-size:11px;color:var(--text-2)">${escHtml(item.label)}</div>` : ''}
                 </div>`;
               }).join('')}
@@ -1020,11 +1024,6 @@ Object.assign(SpTypes, {
       });
     }
     render();
-  },
-
-  // ── История по порядку ────────────────────────────────────────────────────
-  storyOrder(ex, content, container, onDone) {
-    SpTypes.sequencing(ex, content, container, onDone);
   },
 
   // ── По размеру ────────────────────────────────────────────────────────────
@@ -1510,23 +1509,358 @@ Object.assign(SpTypes, {
     }next();
   },
 
-  // ── Назови эмоцию ─────────────────────────────────────────────────────────
-  emotionMatch(ex, content, container, onDone) {
-    const tasks=content.tasks||[];if(!tasks.length){container.innerHTML=`<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет заданий</div><button class="btn btn-primary" id="sp-skip">Пропустить</button></div></div>`;container.querySelector('#sp-skip').addEventListener('click',()=>onDone({correct:0,total:0,duration_sec:0}));return;}
-    let idx=0,correct=0;const t0=Date.now();
-    async function next(){if(idx>=tasks.length){onDone({correct,total:tasks.length,duration_sec:Math.round((Date.now()-t0)/1000)});return;}
-      const task=tasks[idx];const emos=[...(task.emotions||[])].sort(()=>Math.random()-.5);
-      container.innerHTML=`<div class="player-body" style="overflow-y:auto"><div class="player-card" style="max-width:660px;width:100%">
-        <div class="player-question" style="margin-bottom:20px">Что чувствует? (${idx+1}/${tasks.length})</div>
-        ${task.image||task.img?`<div id="em-img" style="text-align:center;margin-bottom:12px"></div>`:''}
-        ${task.situation?`<div style="font-size:15px;line-height:1.6;max-width:440px;margin:0 auto 20px;text-align:center">${escHtml(task.situation)}</div>`:''}
-        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-          ${emos.map((e,ei)=>`<button class="player-opt em-opt" data-i="${ei}" style="padding:12px 18px;font-size:15px">${escHtml(e.label||'')}</button>`).join('')}
-        </div></div></div>`;
-      const imgP=task.image||task.img||'';if(imgP){const d=await window.db.files.getImageData(imgP);if(d){const el=container.querySelector('#em-img');if(el)el.innerHTML=`<img src="${d}" style="height:160px;object-fit:contain;border-radius:var(--r-lg)">`;}}
-      container.querySelectorAll('.em-opt').forEach((btn,bi)=>btn.addEventListener('click',()=>{const ok=emos[bi].correct;if(ok){Sound.success();correct++;}else Sound.error();
-        container.querySelectorAll('.em-opt').forEach((b,bj)=>{b.disabled=true;if(emos[bj].correct){b.style.background='var(--green-l)';b.style.borderColor='var(--green)';}});
-        if(!ok){btn.style.background='var(--rose-l)';btn.style.borderColor='var(--rose)';}idx++;setTimeout(next,1100);}));
-    }next();
+
+  // ── Слоги → слово ─────────────────────────────────────────────────────────
+  async syllables(ex, content, container, onDone) {
+    const items = (content.items || []).filter(it => it.syllables && it.syllables.length > 0);
+    if (!items.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет заданий</div><button class="btn btn-primary" style="margin-top:20px" id="sp-skip">Далее</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct: 0, total: 0, duration_sec: 0 }));
+      return;
+    }
+    let idx = 0, correct = 0;
+    const t0 = Date.now();
+
+    async function render() {
+      if (!container.isConnected) return;
+      if (idx >= items.length) { onDone({ correct, total: items.length, duration_sec: Math.round((Date.now() - t0) / 1000) }); return; }
+      const item = items[idx];
+      const shuffledIdx = item.syllables.map((_, i) => i);
+      for (let i = shuffledIdx.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledIdx[i], shuffledIdx[j]] = [shuffledIdx[j], shuffledIdx[i]];
+      }
+      let selected = [];
+      const answer = item.syllables.join('');
+
+      function refreshUI() {
+        if (!container.isConnected) return;
+        const done = selected.length === item.syllables.length;
+        const wordEl = container.querySelector('#syl-word');
+        if (wordEl) wordEl.textContent = selected.length ? selected.map(i => item.syllables[i]).join('') : '___';
+        const slotsEl = container.querySelector('#syl-slots');
+        if (slotsEl) {
+          slotsEl.innerHTML = selected.map(i =>
+            `<div class="syl-placed" data-i="${i}" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:var(--r-lg);border:2px solid var(--indigo);background:var(--indigo-l);font-size:22px;font-weight:800;color:var(--indigo);cursor:pointer;transition:all .15s;user-select:none">${escHtml(item.syllables[i])}</div>`
+          ).join('');
+          slotsEl.querySelectorAll('.syl-placed').forEach(ch => {
+            ch.addEventListener('click', () => { selected = selected.filter(x => x !== +ch.dataset.i); Sound.match(); refreshUI(); });
+          });
+        }
+        const poolEl = container.querySelector('#syl-pool');
+        if (poolEl) {
+          poolEl.innerHTML = shuffledIdx.filter(i => !selected.includes(i)).map(i =>
+            `<div class="syl-chip" data-i="${i}" style="display:inline-flex;align-items:center;justify-content:center;padding:10px 20px;border-radius:var(--r-lg);border:2px solid var(--border);background:var(--surface);font-size:22px;font-weight:800;cursor:pointer;transition:all .15s;user-select:none">${escHtml(item.syllables[i])}</div>`
+          ).join('');
+          poolEl.querySelectorAll('.syl-chip').forEach(ch => {
+            ch.addEventListener('click', () => { selected.push(+ch.dataset.i); Sound.match(); refreshUI(); });
+          });
+        }
+        const resetBtn = container.querySelector('#syl-reset');
+        const checkBtn = container.querySelector('#syl-check');
+        if (resetBtn) resetBtn.style.display = selected.length > 0 ? 'inline-flex' : 'none';
+        if (checkBtn) checkBtn.style.display = done ? 'inline-flex' : 'none';
+      }
+
+      container.innerHTML = `<div class="player-body" style="overflow-y:auto">
+        <div class="player-card" style="max-width:600px;width:100%;text-align:center">
+          <div class="player-question" style="margin-bottom:8px">Собери слово из слогов</div>
+          ${item.img ? `<img data-path="${escHtml(item.img)}" style="height:140px;object-fit:contain;border-radius:var(--r-lg);margin-bottom:14px">` : ''}
+          <div id="syl-word" style="font-size:34px;font-weight:900;color:var(--indigo);letter-spacing:.04em;text-align:center;margin-bottom:6px;min-height:44px">___</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-3);text-align:center;margin-bottom:14px">Нажимай слоги по порядку · нажми ещё раз чтобы убрать</div>
+          <div id="syl-slots" style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;min-height:52px;margin-bottom:16px"></div>
+          <div id="syl-pool" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:16px;background:var(--surface-2);border-radius:var(--r-xl);border:2px dashed var(--border);min-height:58px;margin-bottom:20px"></div>
+          <div id="syl-fb" style="text-align:center;margin-bottom:12px;font-size:14px;font-weight:700;min-height:24px"></div>
+          <div style="display:flex;justify-content:center;gap:10px">
+            <button class="btn btn-ghost" id="syl-reset" style="display:none">↩ Сначала</button>
+            <button class="btn btn-primary" id="syl-check" style="display:none">Проверить →</button>
+          </div>
+        </div></div>`;
+      if (!container.isConnected) return;
+      await loadPlayerImages(container);
+      if (!container.isConnected) return;
+
+      container.querySelector('#syl-reset').addEventListener('click', () => {
+        selected = []; const fb = container.querySelector('#syl-fb'); if (fb) fb.textContent = ''; refreshUI();
+      });
+      container.querySelector('#syl-check').addEventListener('click', () => {
+        const assembled = selected.map(i => item.syllables[i]).join('');
+        const isOk = assembled === answer;
+        if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+        const fb = container.querySelector('#syl-fb');
+        if (fb) {
+          fb.style.cssText = `padding:8px 16px;border-radius:var(--r-lg);display:inline-block;background:${isOk ? 'var(--green-l)' : 'var(--rose-l)'};color:${isOk ? 'var(--green)' : 'var(--rose)'};border:1.5px solid ${isOk ? '#B6E8D0' : '#F5BFBF'}`;
+          fb.textContent = isOk ? '✓ Правильно! Отлично!' : `✗ Правильно: ${answer}`;
+        }
+        container.querySelectorAll('#syl-reset,#syl-check,.syl-chip,.syl-placed').forEach(b => b.style.pointerEvents = 'none');
+        setTimeout(() => { idx++; render(); }, 1400);
+      });
+      refreshUI();
+    }
+    render();
   },
+
+  // ── Место звука ──────────────────────────────────────────────────────────
+  async soundPosition(ex, content, container, onDone) {
+    const sound = content.sound || '';
+    const items = (content.items || []).filter(it => it.word && it.position);
+    if (!items.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет заданий</div><button class="btn btn-primary" style="margin-top:20px" id="sp-skip">Далее</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct: 0, total: 0, duration_sec: 0 }));
+      return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const t0 = Date.now();
+
+    function posBar(pos) {
+      const active = { start: 0, middle: 1, end: 2 }[pos];
+      return `<div style="display:flex;gap:4px;align-items:center;margin-bottom:6px;justify-content:center">
+        ${[0,1,2].map(i => `<div style="width:14px;height:14px;border-radius:3px;border:2px solid currentColor;background:${i===active?'currentColor':'transparent'};transition:background .15s"></div>`).join('')}
+      </div>`;
+    }
+    function highlightWord(word, snd) {
+      if (!snd) return escHtml(word);
+      const lo = word.toLowerCase(), s = snd.toLowerCase(), i = lo.indexOf(s);
+      if (i < 0) return escHtml(word);
+      return escHtml(word.slice(0, i)) + `<span style="color:var(--indigo);font-weight:900">${escHtml(word.slice(i, i + s.length))}</span>` + escHtml(word.slice(i + s.length));
+    }
+
+    async function render() {
+      if (!container.isConnected) return;
+      if (idx >= shuffled.length) { onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now() - t0) / 1000) }); return; }
+      const item = shuffled[idx];
+      const DEFS = [{ pos: 'start', label: 'Начало' }, { pos: 'middle', label: 'Середина' }, { pos: 'end', label: 'Конец' }];
+      container.innerHTML = `<div class="player-body" style="overflow-y:auto">
+        <div class="player-card" style="max-width:540px;width:100%;text-align:center">
+          <div class="player-question" style="margin-bottom:10px">Где стоит звук <span style="color:var(--indigo)">[${escHtml(sound)}]</span>?</div>
+          ${item.img ? `<div style="width:160px;height:160px;border-radius:var(--r-xl);background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;overflow:hidden"><img data-path="${escHtml(item.img)}" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
+          <div style="font-size:30px;font-weight:900;text-align:center;margin-bottom:24px;letter-spacing:.03em">${highlightWord(item.word, sound)}</div>
+          <div style="display:flex;gap:16px;justify-content:center">
+            ${DEFS.map(d => `<div class="sp-btn" data-pos="${d.pos}" style="width:120px;height:80px;border:2px solid var(--border);border-radius:var(--r-xl);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;transition:all .15s;font-weight:800;color:var(--text-2);background:var(--surface)">${posBar(d.pos)}<span style="font-size:13px">${d.label}</span></div>`).join('')}
+          </div>
+          <div id="pos-fb" style="text-align:center;margin-top:20px;font-size:14px;font-weight:700;min-height:24px"></div>
+        </div></div>`;
+      if (!container.isConnected) return;
+      await loadPlayerImages(container);
+      if (!container.isConnected) return;
+
+      container.querySelectorAll('.sp-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const isOk = btn.dataset.pos === item.position;
+          if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+          container.querySelectorAll('.sp-btn').forEach(b => {
+            b.style.pointerEvents = 'none';
+            if (b.dataset.pos === item.position) { b.style.borderColor = 'var(--green)'; b.style.background = 'var(--green-l)'; b.style.color = 'var(--green)'; }
+            else if (b === btn) { b.style.borderColor = 'var(--rose)'; b.style.background = 'var(--rose-l)'; b.style.color = 'var(--rose)'; }
+          });
+          const fb = container.querySelector('#pos-fb');
+          if (fb) { fb.style.color = isOk ? 'var(--green)' : 'var(--rose)'; fb.textContent = isOk ? '✓ Правильно!' : '✗ Попробуй ещё раз'; }
+          setTimeout(() => { idx++; render(); }, 900);
+        });
+      });
+    }
+    render();
+  },
+
+  // ── Считай слоги ─────────────────────────────────────────────────────────
+  async syllableCount(ex, content, container, onDone) {
+    const items = (content.items || []).filter(it => it.word && it.count > 0);
+    if (!items.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет заданий</div><button class="btn btn-primary" style="margin-top:20px" id="sp-skip">Далее</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct: 0, total: 0, duration_sec: 0 }));
+      return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const t0 = Date.now();
+
+    async function render() {
+      if (!container.isConnected) return;
+      if (idx >= shuffled.length) { onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now() - t0) / 1000) }); return; }
+      const item = shuffled[idx];
+      let taps = 0, locked = false;
+
+      container.innerHTML = `<div class="player-body" style="overflow-y:auto">
+        <div class="player-card" style="max-width:480px;width:100%;text-align:center">
+          <div class="player-question" style="margin-bottom:8px">Сколько слогов?</div>
+          ${item.img ? `<div style="width:160px;height:160px;border-radius:var(--r-xl);background:var(--surface-2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;overflow:hidden"><img data-path="${escHtml(item.img)}" style="width:100%;height:100%;object-fit:contain"></div>` : ''}
+          <div style="font-size:38px;font-weight:900;text-align:center;margin-bottom:4px">${escHtml(item.word)}</div>
+          <div id="sc-counter" style="font-size:64px;font-weight:900;text-align:center;color:var(--indigo);line-height:1;margin:12px 0;min-height:72px">0</div>
+          <div id="sc-dots" style="display:flex;gap:6px;justify-content:center;min-height:22px;margin-bottom:20px"></div>
+          <button id="sc-tap" style="width:120px;height:120px;border-radius:50%;border:none;background:var(--indigo);color:#fff;font-size:18px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;transition:transform .1s;box-shadow:0 6px 20px rgba(91,91,214,.35);margin:0 auto;-webkit-tap-highlight-color:transparent;touch-action:manipulation">
+            <span style="font-size:28px">👏</span><span style="font-size:13px">Хлопни!</span>
+          </button>
+          <div style="display:flex;gap:12px;justify-content:center;margin-top:20px">
+            <button class="btn btn-ghost" id="sc-reset">↩ Сброс</button>
+            <button class="btn btn-primary" id="sc-check" style="display:none">Проверить →</button>
+          </div>
+          <div id="sc-fb" style="text-align:center;margin-top:16px;font-size:14px;font-weight:700;min-height:24px"></div>
+        </div></div>`;
+      if (!container.isConnected) return;
+      await loadPlayerImages(container);
+      if (!container.isConnected) return;
+
+      const tapBtn  = container.querySelector('#sc-tap');
+      const counter = container.querySelector('#sc-counter');
+      const dots    = container.querySelector('#sc-dots');
+      const checkBtn = container.querySelector('#sc-check');
+      const resetBtn = container.querySelector('#sc-reset');
+      const fb      = container.querySelector('#sc-fb');
+
+      tapBtn.addEventListener('click', () => {
+        if (locked) return;
+        taps++;
+        Sound.match();
+        tapBtn.style.transform = 'scale(.88)';
+        setTimeout(() => { if (tapBtn && tapBtn.isConnected) tapBtn.style.transform = 'scale(1)'; }, 100);
+        counter.textContent = taps;
+        dots.innerHTML = `<div style="width:20px;height:20px;border-radius:50%;background:var(--indigo);opacity:.8"></div>`.repeat(taps);
+        checkBtn.style.display = 'inline-flex';
+      });
+      resetBtn.addEventListener('click', () => {
+        taps = 0; counter.textContent = '0'; dots.innerHTML = ''; checkBtn.style.display = 'none'; fb.textContent = '';
+      });
+      checkBtn.addEventListener('click', () => {
+        if (locked) return; locked = true;
+        const isOk = taps === item.count;
+        if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+        fb.style.cssText = `padding:8px 16px;border-radius:var(--r-lg);display:inline-block;background:${isOk ? 'var(--green-l)' : 'var(--rose-l)'};color:${isOk ? 'var(--green)' : 'var(--rose)'};border:1.5px solid ${isOk ? '#B6E8D0' : '#F5BFBF'}`;
+        fb.textContent = isOk ? `✓ Правильно! ${item.count} ${item.count === 1 ? 'слог' : item.count < 5 ? 'слога' : 'слогов'}` : `✗ Правильно: ${item.count}`;
+        [tapBtn, resetBtn, checkBtn].forEach(b => { if (b) b.style.pointerEvents = 'none'; });
+        setTimeout(() => { idx++; render(); }, 1400);
+      });
+    }
+    render();
+  },
+
+  // ── Подпиши картинку ─────────────────────────────────────────────────────
+  async labelImage(ex, content, container, onDone) {
+    const img       = content.img || '';
+    const hotspots  = content.hotspots || [];
+    const allLabels = content.labels || [];
+    if (!img || !hotspots.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет картинки или маркеров</div><button class="btn btn-primary" style="margin-top:20px" id="sp-skip">Далее</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct: 0, total: 0, duration_sec: 0 }));
+      return;
+    }
+    const t0             = Date.now();
+    const solved         = {};
+    const wrongOnce      = new Set();
+    let selected         = null;
+    const shuffledLabels = [...allLabels].sort(() => Math.random() - .5);
+
+    async function render() {
+      if (!container.isConnected) return;
+      const allDone = hotspots.every(h => solved[h.id]);
+      if (allDone) {
+        onDone({ correct: hotspots.filter(h => !wrongOnce.has(String(h.id))).length, total: hotspots.length, duration_sec: Math.round((Date.now() - t0) / 1000) });
+        return;
+      }
+      container.innerHTML = `<div class="player-body" style="overflow-y:auto">
+        <div class="player-card" style="max-width:680px;width:100%;text-align:center">
+          <div class="player-question" style="margin-bottom:14px">Нажми на маркер, потом выбери подпись</div>
+          <div style="position:relative;max-width:380px;margin:0 auto 16px;display:inline-block">
+            <img id="li-img" data-path="${escHtml(img)}" style="width:100%;max-height:240px;object-fit:contain;border-radius:var(--r-xl);border:2px solid var(--border);display:block">
+            ${hotspots.map((h, i) => {
+              const isSolved = !!solved[h.id];
+              const isSel    = selected === h.id;
+              const bg       = isSolved ? 'var(--green)' : 'var(--indigo)';
+              const scale    = isSel ? 'translate(-50%,-50%) scale(1.3)' : 'translate(-50%,-50%) scale(1)';
+              return `<div class="li-marker" data-id="${escHtml(h.id)}" style="position:absolute;left:${h.x}%;top:${h.y}%;transform:${scale};width:26px;height:26px;border-radius:50%;background:${bg};border:3px solid #fff;box-shadow:0 2px 8px rgba(91,91,214,.4);cursor:${isSolved?'default':'pointer'};pointer-events:${isSolved?'none':'auto'};display:flex;align-items:center;justify-content:center;transition:transform .15s,background .15s">
+                <span style="color:#fff;font-size:11px;font-weight:900">${i + 1}</span>
+                ${isSolved ? `<div style="position:absolute;background:var(--indigo);color:#fff;font-size:12px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);pointer-events:none">${escHtml(solved[h.id])}</div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+          <div id="hs-hint" style="font-size:13px;font-weight:700;color:var(--text-3);text-align:center;margin-bottom:12px">
+            ${selected ? `Маркер ${hotspots.findIndex(h => String(h.id) === selected) + 1} выбран — нажми подпись` : 'Выбери маркер на картинке'}
+          </div>
+          <div id="li-labels" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center">
+            ${shuffledLabels.map((l, li) => {
+              const isPlaced = Object.values(solved).includes(l);
+              return `<div class="li-lbl" data-li="${li}" data-lbl="${escHtml(l)}" style="padding:8px 16px;border-radius:var(--r-lg);border:2px solid var(--border);background:var(--surface);font-size:14px;font-weight:700;cursor:${isPlaced?'default':'pointer'};opacity:${isPlaced?'.3':'1'};pointer-events:${isPlaced?'none':'auto'};transition:all .15s">${escHtml(l)}</div>`;
+            }).join('')}
+          </div>
+        </div></div>`;
+      if (!container.isConnected) return;
+      await loadPlayerImages(container);
+      if (!container.isConnected) return;
+
+      container.querySelectorAll('.li-marker').forEach(m => {
+        m.addEventListener('click', () => { selected = m.dataset.id; render(); });
+      });
+      container.querySelectorAll('.li-lbl').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (!selected) return;
+          const lbl  = btn.dataset.lbl;
+          const hs   = hotspots.find(h => String(h.id) === selected);
+          const isOk = hs && hs.label === lbl;
+          if (isOk) {
+            solved[selected] = lbl; selected = null; Sound.success(); render();
+          } else {
+            wrongOnce.add(selected); Sound.error();
+            btn.style.borderColor = 'var(--rose)'; btn.style.background = 'var(--rose-l)';
+            setTimeout(() => { if (btn.isConnected) { btn.style.borderColor = ''; btn.style.background = ''; } }, 700);
+          }
+        });
+      });
+    }
+    render();
+  },
+
+  // ── Да / Нет ───────────────────────────────────────────────────────────────
+  async yesNo(ex, content, container, onDone) {
+    const question = content.question || '';
+    const items    = content.items || [];
+    if (!items.length) {
+      container.innerHTML = `<div class="player-body"><div class="player-card" style="text-align:center"><div style="color:var(--text-3)">Нет карточек</div><button class="btn btn-primary" style="margin-top:20px" id="sp-skip">Далее</button></div></div>`;
+      container.querySelector('#sp-skip').addEventListener('click', () => onDone({ correct: 0, total: 0, duration_sec: 0 }));
+      return;
+    }
+    const shuffled = [...items].sort(() => Math.random() - .5);
+    let idx = 0, correct = 0;
+    const t0 = Date.now();
+
+    async function render() {
+      if (!container.isConnected) return;
+      if (idx >= shuffled.length) { onDone({ correct, total: shuffled.length, duration_sec: Math.round((Date.now() - t0) / 1000) }); return; }
+      const item = shuffled[idx];
+      container.innerHTML = `<div class="player-body" style="overflow-y:auto">
+        <div class="player-card" style="max-width:480px;width:100%;text-align:center">
+          ${question ? `<div class="player-question" style="margin-bottom:8px">${escHtml(question)}</div>` : ''}
+          <div id="yn-card" style="width:240px;height:180px;border:2px solid var(--border);border-radius:var(--r-2xl);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;margin:0 auto 24px;transition:transform .2s,border-color .2s">
+            ${item.img ? `<img data-path="${escHtml(item.img)}" style="height:110px;object-fit:contain;border-radius:var(--r-lg)">` : `<div style="font-size:60px;line-height:1">${escHtml(item.label || '')}</div>`}
+            ${item.label && item.img ? `<div style="font-size:14px;font-weight:700;color:var(--text-2)">${escHtml(item.label)}</div>` : ''}
+          </div>
+          <div id="yn-fb" style="text-align:center;min-height:20px;font-size:14px;font-weight:700;margin-bottom:16px"></div>
+          <div style="display:flex;gap:20px;justify-content:center">
+            <button class="yn-yes" data-ans="true" style="width:120px;height:60px;border-radius:var(--r-xl);background:var(--green-l);color:var(--green);border:2px solid var(--green);cursor:pointer;font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">✓ Да</button>
+            <button class="yn-no"  data-ans="false" style="width:120px;height:60px;border-radius:var(--r-xl);background:var(--rose-l);color:var(--rose);border:2px solid var(--rose);cursor:pointer;font-size:20px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s">✗ Нет</button>
+          </div>
+        </div></div>`;
+      if (!container.isConnected) return;
+      await loadPlayerImages(container);
+      if (!container.isConnected) return;
+
+      container.querySelectorAll('.yn-yes,.yn-no').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const chosen = btn.dataset.ans === 'true';
+          const isOk   = chosen === item.answer;
+          if (isOk) { correct++; Sound.success(); } else { Sound.error(); }
+          const card = container.querySelector('#yn-card');
+          if (card) {
+            card.style.transform = chosen ? 'rotate(-6deg) translateX(-10px)' : 'rotate(6deg) translateX(10px)';
+            card.style.borderColor = isOk ? 'var(--green)' : 'var(--rose)';
+          }
+          const fb = container.querySelector('#yn-fb');
+          if (fb) { fb.style.color = isOk ? 'var(--green)' : 'var(--rose)'; fb.textContent = isOk ? '✓ Правильно!' : '✗ Нет…'; }
+          container.querySelectorAll('.yn-yes,.yn-no').forEach(b => b.style.pointerEvents = 'none');
+          setTimeout(() => { idx++; render(); }, 700);
+        });
+      });
+    }
+    render();
+  },
+
 });
