@@ -1,6 +1,6 @@
 {
   "name": "vekha",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "Веха — конструктор занятий для педагогов",
   "main": "main.js",
   "scripts": {
@@ -9,7 +9,9 @@
     "build": "electron-builder --win --x64 --publish never",
     "build:linux": "electron-builder --linux --x64 --publish never",
     "build:all": "electron-builder --win --linux --x64 --publish never",
-    "release": "electron-builder --win --linux --x64 --publish always",
+    "release": "electron-builder --publish always",
+    "release:win": "electron-builder --win --x64 --publish always",
+    "release:linux": "electron-builder --linux --x64 --publish always",
     "patch": "node scripts/bump.js patch",
     "minor": "node scripts/bump.js minor",
     "major": "node scripts/bump.js major"
@@ -42,25 +44,11 @@
       "repo": "GITHUB_REPO"
     },
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "src/assets/logo.jpg"
     },
     "linux": {
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
       "icon": "src/assets/logo.png",
       "category": "Education"
     },
