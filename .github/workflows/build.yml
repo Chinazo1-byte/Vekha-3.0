@@ -11,14 +11,10 @@ permissions:
 
 jobs:
 
-  # ── Шаг 1: создать черновик релиза ─────────────────────────────────────────
   create-release:
     runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create.outputs.upload_url }}
     steps:
       - name: Create GitHub Release
-        id: create
         uses: softprops/action-gh-release@v2
         with:
           draft: false
@@ -27,7 +23,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ── Шаг 2a: сборка Windows ─────────────────────────────────────────────────
   build-windows:
     needs: create-release
     runs-on: windows-latest
@@ -47,7 +42,17 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows artifact
+      # Явно загружаем latest.yml если electron-builder не залил его сам
+      - name: Upload latest.yml to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/latest.yml
+            dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
@@ -55,7 +60,6 @@ jobs:
             dist/*.exe
             dist/latest.yml
 
-  # ── Шаг 2b: сборка Linux ───────────────────────────────────────────────────
   build-linux:
     needs: create-release
     runs-on: ubuntu-latest
@@ -79,7 +83,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux artifact
+      - name: Upload latest-linux.yml to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/latest-linux.yml
+            dist/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
