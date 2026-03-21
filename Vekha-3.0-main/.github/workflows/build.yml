@@ -1,0 +1,101 @@
+name: Build Веха
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows
+        run: npm run release:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Явно загружаем latest.yml если electron-builder не залил его сам
+      - name: Upload latest.yml to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/latest.yml
+            dist/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist/*.exe
+            dist/latest.yml
+
+  build-linux:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Convert icon to PNG
+        run: |
+          sudo apt-get install -y imagemagick
+          convert src/assets/logo.jpg src/assets/logo.png
+
+      - name: Build Linux
+        run: npm run release:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload latest-linux.yml to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/latest-linux.yml
+            dist/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: |
+            dist/*.AppImage
+            dist/latest-linux.yml

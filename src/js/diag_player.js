@@ -242,12 +242,198 @@ const DiagPlayer = {
             <div style="margin-bottom:10px">
               <div style="display:flex;justify-content:space-between;margin-bottom:4px">
                 <span style="font-size:12.5px;color:var(--text-2)">${VAS_LABELS[k]||k}</span>
-                <span style="font-size:13px;font-weight:700;color:${VAS_COLORS[k]||'var(--indigo)'}">${v}/10</span>
+                <span style="font-size:13px;font-weight:700;color:${VAS_COLORS[k]||'var(--indigo)'}">
+                  ${k === 'anxiety' ? 10-v : v}/10</span>
               </div>
               <div style="height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
                 <div style="height:100%;width:${v*10}%;background:${VAS_COLORS[k]||'var(--indigo)'};border-radius:4px"></div>
               </div>
             </div>`).join('')}
+        </div>`;
+    }
+
+    // Эббингауза: текст с подсветкой правильных/неправильных ответов
+    if (methodId === 'ebbinghaus_fill_blank' && scores.detail) {
+      const EBB_SEG = [
+        {t:1,x:'Над городом низко повисли снеговые '},{b:1},
+        {t:2,x:'. Вечером началась '},{b:2},
+        {t:3,x:'. Снег повалил большими '},{b:3},
+        {t:4,x:'. Холодный ветер выл как '},{b:4},
+        {t:5,x:' дикий '},{b:5},
+        {t:6,x:'. На конце пустынной и глухой '},{b:6},
+        {t:7,x:' вдруг показалась какая-то девочка. Она медленно и с '},{b:7},
+        {t:8,x:' пробиралась по '},{b:8},
+        {t:9,x:'. Она была худа и бедно '},{b:9},
+        {t:10,x:'. Валенки сваливались с ног и '},{b:10},
+        {t:11,x:' ей идти. На ней было плохое '},{b:11},
+        {t:12,x:' с узкими рукавами, а на плечах '},{b:12},
+        {t:13,x:'. Вдруг девочка '},{b:13},
+        {t:14,x:' и начала что-то '},{b:14},
+        {t:15,x:' у себя под ногами. Наконец она стала на '},{b:15},
+        {t:16,x:' и стала '},{b:16},
+        {t:17,x:' по сугробу.'},
+      ];
+      const textHTML = EBB_SEG.map(seg => {
+        if (seg.t != null && seg.x) return escHtml(seg.x);
+        const d = scores.detail[seg.b];
+        if (!d) return `<span style="color:var(--text-3)">[—]</span>`;
+        const col = d.ok ? 'var(--green)' : 'var(--rose)';
+        const bg  = d.ok ? 'var(--green-l)' : 'var(--rose-l)';
+        return `<span style="background:${bg};color:${col};border-radius:4px;padding:1px 6px;font-weight:600">${escHtml(d.answer||'—')}</span>`;
+      }).join('');
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:14px;text-transform:uppercase">
+            Результат: ${scores.correct} / ${scores.total} верных ответов
+          </div>
+          <div style="font-size:14.5px;line-height:2.5;color:var(--text-1)">${textHTML}</div>
+          ${scores.notes ? `<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:6px">Наблюдения специалиста</div>
+            <div style="font-size:13px;color:var(--text-2);line-height:1.6">${escHtml(scores.notes)}</div>
+          </div>` : ''}
+        </div>`;
+    }
+
+    // САН: три шкалы с нормами
+    if (methodId === 'san_wellbeing' && scores.С != null) {
+      const SAN_NORMS = { С:5.4, А:5.0, Н:5.1 };
+      const SAN_NAMES = { С:'Самочувствие', А:'Активность', Н:'Настроение' };
+      const SAN_COLS  = { С:'var(--indigo)', А:'var(--green)', Н:'var(--amber)' };
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:14px;text-transform:uppercase">
+            Профиль САН (шкала 1–7)
+          </div>
+          ${['С','А','Н'].map(k => {
+            const v    = scores[k];
+            const norm = SAN_NORMS[k];
+            const pctV = Math.round((v/7)*100);
+            const pctN = Math.round((norm/7)*100);
+            const col  = SAN_COLS[k];
+            const diff = +(v - norm).toFixed(1);
+            const diffLbl = diff >= 0 ? '+'+diff : ''+diff;
+            const diffCol = diff >= 0 ? 'var(--green)' : 'var(--rose)';
+            return `<div style="margin-bottom:16px">
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px">
+                <span style="font-size:13px;font-weight:700;color:var(--text-1);min-width:110px">${SAN_NAMES[k]}</span>
+                <span style="font-size:20px;font-weight:800;color:${col}">${v}</span>
+                <span style="font-size:12px;color:var(--text-3)">из 7 · норма ${norm}</span>
+                <span style="font-size:12px;font-weight:700;color:${diffCol};margin-left:auto">${diffLbl}</span>
+              </div>
+              <div style="position:relative;height:8px;background:var(--surface-2);border-radius:4px;overflow:visible">
+                <div style="height:100%;width:${pctV}%;background:${col};border-radius:4px;opacity:.85"></div>
+                <div style="position:absolute;left:${pctN}%;top:-3px;width:2px;height:14px;background:var(--text-3);z-index:2"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-4);margin-top:4px">
+                <span>1</span><span style="margin-left:${pctN}%">норма</span><span>7</span>
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="font-size:11px;color:var(--text-3);padding-top:8px;border-top:1px solid var(--border)">
+            Ответов: ${scores.answered}/30 · Нормы: студенты Москвы (Доманова и др.)
+          </div>
+        </div>`;
+    }
+
+    // ОСТ: профиль по 8 шкалам темперамента
+    if (methodId === 'ost_rusalov' && scores.ER != null) {
+      if (!scores.valid) return '';
+      const OST_COLS = ['var(--indigo)','var(--green)','var(--amber)','var(--teal)','var(--purple)','var(--rose)','#f97316','var(--text-2)'];
+      const ostSubs  = _OST_SUBSCALES.filter(s => s.id !== 'K');
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:14px;text-transform:uppercase">
+            Профиль темперамента · К = ${scores.K}${scores.K < 7 ? ' (в норме)' : ' ⚠️'}
+          </div>
+          ${ostSubs.map((sub, i) => {
+            const v   = scores[sub.id];
+            const pct = Math.round((v/sub.max)*100);
+            const col = OST_COLS[i % OST_COLS.length];
+            const lbl = v >= 9 ? 'высок.' : v >= 5 ? 'средн.' : 'низк.';
+            const lc  = v >= 9 ? 'var(--green)' : v >= 5 ? 'var(--amber)' : 'var(--rose)';
+            return `<div style="margin-bottom:11px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                <span style="font-size:12.5px;color:var(--text-2);flex:1">${escHtml(sub.name)}</span>
+                <span style="font-size:13px;font-weight:800;color:${col}">${v}</span>
+                <span style="font-size:11px;color:var(--text-3)">/${sub.max}</span>
+                <span style="font-size:11px;font-weight:700;color:${lc};min-width:44px;text-align:right">${lbl}</span>
+              </div>
+              <div style="height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden;position:relative">
+                <div style="position:absolute;left:41.6%;top:0;width:1px;height:100%;background:rgba(0,0,0,.12)"></div>
+                <div style="position:absolute;left:75%;top:0;width:1px;height:100%;background:rgba(0,0,0,.12)"></div>
+                <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;opacity:.82"></div>
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="font-size:11px;color:var(--text-3);padding-top:8px;border-top:1px solid var(--border)">
+            │ низк. 0–4 │ средн. 5–8 │ высок. 9–12 │ · Ответов: ${scores.answered}/105
+          </div>
+        </div>`;
+    }
+
+    // Рокич: таблицы ранжирования
+    if (methodId === 'rokich_values' && scores.terminal_ideal) {
+      const rokTable = (list, actual, ideal, deltas, title) => {
+        if (!actual?.length || !ideal?.length) return '';
+        const rA={}, rI={};
+        actual.forEach((id,i) => rA[id]=i+1);
+        ideal.forEach((id,i)  => rI[id]=i+1);
+        const rows = ideal.map(id => {
+          const item  = list.find(x=>x.id===id);
+          const delta = deltas[id]||0;
+          const col   = delta>=7 ? 'var(--rose)' : delta>=4 ? 'var(--amber)' : 'var(--text-3)';
+          return `<tr>
+            <td style="padding:6px 10px;font-size:12.5px;color:var(--text-1)">${escHtml(item?.t||id)}</td>
+            <td style="padding:6px 10px;text-align:center;font-size:13px;font-weight:700;color:var(--indigo)">${rI[id]||'—'}</td>
+            <td style="padding:6px 10px;text-align:center;font-size:13px;color:var(--text-2)">${rA[id]||'—'}</td>
+            <td style="padding:6px 10px;text-align:center;font-size:12px;font-weight:700;color:${col}">${delta>0?'±'+delta:'0'}</td>
+          </tr>`;
+        });
+        return `<div style="margin-bottom:16px">
+          <div style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">${title}</div>
+          <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <thead><tr style="background:var(--surface-2)">
+              <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text-3)">Ценность</th>
+              <th style="padding:7px 10px;text-align:center;font-size:11px;color:var(--text-3)">Идеал</th>
+              <th style="padding:7px 10px;text-align:center;font-size:11px;color:var(--text-3)">Реально</th>
+              <th style="padding:7px 10px;text-align:center;font-size:11px;color:var(--text-3)">Δ</th>
+            </tr></thead>
+            <tbody>${rows.join('')}</tbody>
+          </table></div>
+        </div>`;
+      };
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:14px;text-transform:uppercase">
+            Идеал vs Реальность (Δ = расхождение рангов)
+          </div>
+          ${rokTable(_ROKICH_T, scores.terminal_actual, scores.terminal_ideal, scores.terminal_deltas, 'Терминальные ценности (цели)')}
+          ${rokTable(_ROKICH_I, scores.instrumental_actual, scores.instrumental_ideal, scores.instrumental_deltas, 'Инструментальные ценности (средства)')}
+          <div style="font-size:11px;color:var(--text-3)">Δ ≥ 7 — значимое расхождение (выделено красным)</div>
+        </div>`;
+    }
+
+    // Личностные ожидания ребёнка
+    if (methodId === 'personal_expectations_child' && scores.responses) {
+      const PE_TITLES = ['Ситуация 1 (положит.)', 'Ситуация 2 (положит.)', 'Ситуация 3 (отриц.)', 'Ситуация 4 (отриц.)'];
+      const peRows = ['r1','r2','r3','r4'].map((key, i) => {
+        const ans = scores.responses[key]||'';
+        if (!ans.trim()) return '';
+        return `<div style="margin-bottom:12px">
+          <div style="font-size:11.5px;font-weight:700;color:var(--text-3);margin-bottom:5px">${PE_TITLES[i]}</div>
+          <div style="font-size:13.5px;color:var(--text-1);line-height:1.65;padding:10px 14px;
+               background:var(--surface-2);border-radius:8px">${escHtml(ans)}</div>
+        </div>`;
+      }).filter(Boolean);
+      if (!peRows.length && !scores.summary) return '';
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:18px;margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:14px;text-transform:uppercase">Ответы ребёнка по ситуациям</div>
+          ${peRows.join('')}
+          ${scores.summary ? `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="font-size:11.5px;font-weight:700;color:var(--indigo);margin-bottom:5px">Заключение специалиста</div>
+            <div style="font-size:13.5px;color:var(--text-1);line-height:1.65">${escHtml(scores.summary)}</div>
+          </div>` : ''}
         </div>`;
     }
 
@@ -1334,6 +1520,470 @@ const DiagUIs = {
     };
     render();
   },
+
+  // ── 11. Эббингауза — заполнение пропусков ─────────────────────────────────
+  ebbinghaus_fill_blank(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+
+    const SEGMENTS = [
+      {type:'text', text:'Над городом низко повисли снеговые '},
+      {type:'blank', id:1},
+      {type:'text', text:'. Вечером началась '},
+      {type:'blank', id:2},
+      {type:'text', text:'. Снег повалил большими '},
+      {type:'blank', id:3},
+      {type:'text', text:'. Холодный ветер выл как '},
+      {type:'blank', id:4},
+      {type:'text', text:' дикий '},
+      {type:'blank', id:5},
+      {type:'text', text:'. На конце пустынной и глухой '},
+      {type:'blank', id:6},
+      {type:'text', text:' вдруг показалась какая-то девочка. Она медленно и с '},
+      {type:'blank', id:7},
+      {type:'text', text:' пробиралась по '},
+      {type:'blank', id:8},
+      {type:'text', text:'. Она была худа и бедно '},
+      {type:'blank', id:9},
+      {type:'text', text:'. Она продвигалась медленно вперёд, валенки сваливались с ног и '},
+      {type:'blank', id:10},
+      {type:'text', text:' ей идти. На ней было плохое '},
+      {type:'blank', id:11},
+      {type:'text', text:' с узкими рукавами, а на плечах '},
+      {type:'blank', id:12},
+      {type:'text', text:'. Вдруг девочка '},
+      {type:'blank', id:13},
+      {type:'text', text:' и, наклонившись, начала что-то '},
+      {type:'blank', id:14},
+      {type:'text', text:' у себя под ногами. Наконец она стала на '},
+      {type:'blank', id:15},
+      {type:'text', text:' и своими посиневшими ручонками стала '},
+      {type:'blank', id:16},
+      {type:'text', text:' по сугробу.'},
+    ];
+
+    const answers = {};
+
+    topbar.innerHTML = `<button class="btn btn-primary" id="ebb-done" disabled>Завершить</button>`;
+
+    const checkDone = () => {
+      const filled = Object.values(answers).filter(v => v.trim()).length;
+      document.getElementById('ebb-done').disabled = filled < 16;
+    };
+
+    body.innerHTML = `
+      <div style="width:100%;max-width:740px">
+        <div style="background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:18px 22px;margin-bottom:20px">
+          <div style="font-size:13px;font-weight:600;color:var(--indigo)">📋 Инструкция специалиста</div>
+          <div style="font-size:13px;color:var(--indigo);margin-top:4px;line-height:1.6">
+            Прочитайте текст ребёнку. Попросите вставить подходящие слова. Вписывайте ответы ребёнка в поля.
+          </div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px 32px;margin-bottom:16px">
+          <div style="font-size:15px;font-weight:600;color:var(--text-2);margin-bottom:20px">Текст с пропусками:</div>
+          <div style="font-size:16px;line-height:2.5;color:var(--text-1)" id="ebb-text">
+            ${SEGMENTS.map(seg => {
+              if (seg.type === 'text') return `<span>${escHtml(seg.text)}</span>`;
+              return `<span style="display:inline-flex;align-items:center;gap:2px;vertical-align:middle">
+                <span style="font-size:11px;font-weight:700;color:var(--text-4);min-width:14px;text-align:right">${seg.id}.</span>
+                <input class="ebb-inp" data-id="${seg.id}" type="text"
+                  style="width:110px;padding:3px 8px;border:2px solid var(--border);border-radius:6px;
+                         font-size:15px;font-family:inherit;background:var(--surface-2);color:var(--text-1);
+                         outline:none;transition:border-color .15s"
+                  placeholder="...">
+              </span>`;
+            }).join('')}
+          </div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px 24px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Качественные наблюдения</div>
+          <textarea id="ebb-notes" class="input-field" style="height:80px;width:100%"
+            placeholder="Темп подбора слов, характер ассоциаций, персеверации, речевые стереотипы..."></textarea>
+        </div>
+      </div>`;
+
+    body.querySelectorAll('.ebb-inp').forEach(inp => {
+      inp.addEventListener('focus',  () => { inp.style.borderColor = 'var(--indigo)'; });
+      inp.addEventListener('blur',   () => { inp.style.borderColor = answers[+inp.dataset.id]?.trim() ? 'var(--green)' : 'var(--border)'; });
+      inp.addEventListener('input',  () => {
+        answers[+inp.dataset.id] = inp.value;
+        inp.style.borderColor = inp.value.trim() ? 'var(--green)' : 'var(--indigo)';
+        checkDone();
+      });
+    });
+
+    document.getElementById('ebb-done').addEventListener('click', () => {
+      const notes = document.getElementById('ebb-notes').value;
+      onDone({ answers: { ...answers }, notes });
+    });
+  },
+
+  // ── 12. САН — Самочувствие, Активность, Настроение ────────────────────────
+  san_wellbeing(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const ratings = {};
+    let idx = 0;
+
+    const render = () => {
+      const item = _SAN_ITEMS[idx];
+      const pct  = Math.round(idx / _SAN_ITEMS.length * 100);
+      const cur  = ratings[item.id];
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12.5px;color:var(--text-3)">${idx+1} / ${_SAN_ITEMS.length}</span>
+          <div style="width:100px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo);transition:width .3s"></div>
+          </div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="width:100%;max-width:640px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:36px 40px">
+            <div style="text-align:center;margin-bottom:36px">
+              <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">
+                Как ты себя чувствуешь сейчас?
+              </div>
+            </div>
+            <!-- Биполярная шкала -->
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:40px">
+              <div style="flex:1;text-align:right;font-size:14px;font-weight:600;color:var(--text-1);line-height:1.3">${escHtml(item.l)}</div>
+              <div style="display:flex;gap:8px" id="san-btns">
+                ${[1,2,3,4,5,6,7].map(pos => {
+                  const isSelected = cur === pos;
+                  const label = pos <= 3 ? (4-pos).toString() : pos === 4 ? '0' : (pos-4).toString();
+                  return `<button class="san-btn" data-pos="${pos}"
+                    style="width:42px;height:42px;border-radius:50%;border:2px solid ${isSelected ? 'var(--indigo)' : 'var(--border)'};
+                           background:${isSelected ? 'var(--indigo)' : 'var(--surface-2)'};
+                           color:${isSelected ? '#fff' : 'var(--text-3)'};font-size:13px;font-weight:700;
+                           cursor:pointer;transition:all .15s">${label}</button>`;
+                }).join('')}
+              </div>
+              <div style="flex:1;text-align:left;font-size:14px;font-weight:600;color:var(--text-1);line-height:1.3">${escHtml(item.r)}</div>
+            </div>
+            <div style="text-align:center">
+              ${idx > 0 ? `<button class="btn btn-ghost" id="san-prev" style="margin-right:10px">← Назад</button>` : ''}
+              <button class="btn btn-primary" id="san-next" ${cur == null ? 'disabled' : ''}>
+                ${idx < _SAN_ITEMS.length - 1 ? 'Далее →' : 'Завершить'}
+              </button>
+            </div>
+          </div>
+        </div>`;
+
+      body.querySelectorAll('.san-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pos = +btn.dataset.pos;
+          ratings[item.id] = pos;
+          // Немного задержки для визуального отклика, потом авто-переход
+          render();
+          setTimeout(() => {
+            if (idx < _SAN_ITEMS.length - 1) { idx++; render(); }
+          }, 280);
+        });
+        btn.addEventListener('mouseenter', () => { if (ratings[item.id] !== +btn.dataset.pos) btn.style.background = 'var(--indigo-l)'; });
+        btn.addEventListener('mouseleave', () => { if (ratings[item.id] !== +btn.dataset.pos) btn.style.background = 'var(--surface-2)'; });
+      });
+
+      document.getElementById('san-prev')?.addEventListener('click', () => { idx--; render(); });
+      document.getElementById('san-next')?.addEventListener('click', () => {
+        if (cur == null) return;
+        if (idx < _SAN_ITEMS.length - 1) { idx++; render(); }
+        else onDone({ ratings: { ...ratings } });
+      });
+    };
+    render();
+  },
+
+  // ── 13. ОСТ — Опросник структуры темперамента ─────────────────────────────
+  ost_rusalov(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const answers = {};
+    let idx = 0;
+
+    const render = () => {
+      const item = _OST_ITEMS[idx];
+      const pct  = Math.round(idx / _OST_ITEMS.length * 100);
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:var(--text-3)">${idx+1} / ${_OST_ITEMS.length}</span>
+          <div style="width:120px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo);transition:width .3s"></div>
+          </div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="width:100%;max-width:600px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:40px 36px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-4);text-transform:uppercase;margin-bottom:20px">
+              Вопрос ${idx+1}
+            </div>
+            <div style="font-size:19px;font-weight:500;color:var(--text-1);line-height:1.55;margin-bottom:40px;min-height:60px">
+              ${escHtml(item.t)}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <button class="ost-ans" data-ans="yes"
+                style="padding:18px 0;border-radius:var(--r-xl);border:2px solid var(--green);
+                       background:var(--green-l);color:var(--green);font-size:20px;font-weight:800;
+                       cursor:pointer;transition:all .15s">
+                ДА
+              </button>
+              <button class="ost-ans" data-ans="no"
+                style="padding:18px 0;border-radius:var(--r-xl);border:2px solid var(--rose);
+                       background:var(--rose-l);color:var(--rose);font-size:20px;font-weight:800;
+                       cursor:pointer;transition:all .15s">
+                НЕТ
+              </button>
+            </div>
+            ${idx > 0 ? `
+              <div style="text-align:center;margin-top:20px">
+                <button class="btn btn-ghost btn-sm" id="ost-prev">← Предыдущий</button>
+              </div>` : ''}
+          </div>
+        </div>`;
+
+      body.querySelectorAll('.ost-ans').forEach(btn => {
+        btn.addEventListener('click', () => {
+          answers[item.id] = btn.dataset.ans;
+          if (idx < _OST_ITEMS.length - 1) { idx++; render(); }
+          else onDone({ answers: { ...answers } });
+        });
+        btn.addEventListener('mouseenter', () => { btn.style.transform = 'scale(1.03)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.transform = ''; });
+      });
+      document.getElementById('ost-prev')?.addEventListener('click', () => { idx--; render(); });
+    };
+    render();
+  },
+
+  // ── 14. Ценностные ориентации Рокича ──────────────────────────────────────
+  rokich_values(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+
+    const RUNS = [
+      { id:'terminal_actual',     list:_ROKICH_T, title:'Терминальные ценности', q:'Расставь эти ценности от самой важной для тебя (1) до наименее важной (18):' },
+      { id:'terminal_ideal',      list:_ROKICH_T, title:'Терминальные ценности — идеал', q:'А теперь: каким ты хочешь стать? Расставь те же ценности от самой желанной (1) до наименее важной:' },
+      { id:'instrumental_actual', list:_ROKICH_I, title:'Инструментальные ценности', q:'Расставь эти качества от самого выраженного у тебя (1) до наименее присущего (18):' },
+      { id:'instrumental_ideal',  list:_ROKICH_I, title:'Инструментальные ценности — идеал', q:'А теперь: каким ты хочешь стать? Расставь качества от самого желанного (1):' },
+    ];
+
+    const result  = {};
+    let runIdx = 0;
+
+    const renderRun = () => {
+      const run    = RUNS[runIdx];
+      const ranked = result[run.id] ? [...result[run.id]] : []; // array of IDs in rank order
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12.5px;color:var(--text-3)">Шаг ${runIdx+1} из ${RUNS.length}</span>
+          <div style="display:flex;gap:4px">${RUNS.map((_,i) => `<div style="width:20px;height:4px;border-radius:2px;background:${i<=runIdx?'var(--indigo)':'var(--surface-2)'};transition:background .3s"></div>`).join('')}</div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="width:100%;max-width:720px">
+          <div style="background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:16px 22px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;color:var(--indigo);margin-bottom:4px">${escHtml(run.title)}</div>
+            <div style="font-size:13.5px;color:var(--indigo);line-height:1.55">${escHtml(run.q)}</div>
+          </div>
+          <div style="display:flex;gap:16px">
+            <!-- Ранжированный список -->
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">
+                Твой порядок (${ranked.length}/18)
+              </div>
+              <div id="rokich-ranked" style="display:flex;flex-direction:column;gap:6px;min-height:200px">
+                ${ranked.map((id,i) => {
+                  const item = run.list.find(x=>x.id===id);
+                  return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;
+                               background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-lg);
+                               cursor:pointer" class="rokich-ranked-item" data-id="${id}">
+                    <span style="width:22px;height:22px;border-radius:50%;background:var(--indigo);color:#fff;
+                                 font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
+                    <span style="font-size:13.5px;color:var(--text-1);font-weight:500;flex:1">${escHtml(item?.t||id)}</span>
+                    <span style="font-size:11px;color:var(--indigo);opacity:.7">✕</span>
+                  </div>`;
+                }).join('') || `<div style="padding:24px;text-align:center;color:var(--text-3);font-size:13px">
+                  Нажимай на ценности справа → они встанут по порядку
+                </div>`}
+              </div>
+            </div>
+            <!-- Нерасставленные -->
+            <div style="flex:1">
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">
+                Нерасставленные
+              </div>
+              <div id="rokich-unranked" style="display:flex;flex-direction:column;gap:6px">
+                ${run.list.filter(x => !ranked.includes(x.id)).map(item => `
+                  <div style="padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);
+                               cursor:pointer;transition:background .15s,border-color .15s"
+                       class="rokich-unranked-item" data-id="${item.id}">
+                    <span style="font-size:13.5px;color:var(--text-2)">${escHtml(item.t)}</span>
+                  </div>`).join('')}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:20px;align-items:center">
+            ${runIdx > 0 ? `<button class="btn btn-ghost" id="rokich-back">← Назад</button>` : '<div></div>'}
+            <div style="display:flex;align-items:center;gap:10px">
+              ${ranked.length > 0 ? `<button class="btn btn-ghost btn-sm" id="rokich-reset" style="font-size:12px">Сбросить</button>` : ''}
+              <button class="btn btn-primary" id="rokich-next" ${ranked.length < 18 ? 'disabled' : ''}>
+                ${runIdx < RUNS.length-1 ? 'Далее →' : 'Завершить'}
+              </button>
+            </div>
+          </div>
+        </div>`;
+
+      // Клик по нерасставленному — добавить в конец ранга
+      body.querySelectorAll('.rokich-unranked-item').forEach(item => {
+        item.addEventListener('mouseenter', () => { item.style.background='var(--indigo-l)'; item.style.borderColor='var(--indigo-m)'; });
+        item.addEventListener('mouseleave', () => { item.style.background='var(--surface)';  item.style.borderColor='var(--border)'; });
+        item.addEventListener('click', () => {
+          ranked.push(item.dataset.id);
+          result[run.id] = [...ranked];
+          renderRun();
+        });
+      });
+
+      // Клик по расставленному — удалить из ранга
+      body.querySelectorAll('.rokich-ranked-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const idToRemove = item.dataset.id;
+          ranked.splice(ranked.indexOf(idToRemove), 1);
+          result[run.id] = [...ranked];
+          renderRun();
+        });
+      });
+
+      document.getElementById('rokich-reset')?.addEventListener('click', () => {
+        result[run.id] = [];
+        renderRun();
+      });
+      document.getElementById('rokich-back')?.addEventListener('click', () => { runIdx--; renderRun(); });
+      document.getElementById('rokich-next')?.addEventListener('click', () => {
+        if (ranked.length < 18) return;
+        result[run.id] = [...ranked];
+        if (runIdx < RUNS.length - 1) { runIdx++; renderRun(); }
+        else onDone({ ...result });
+      });
+    };
+    renderRun();
+  },
+
+  // ── 15. Личностные ожидания ребёнка ───────────────────────────────────────
+  personal_expectations_child(el, onDone) {
+    const body   = document.getElementById('dp-body');
+    const topbar = document.getElementById('dp-topbar-right');
+    const responses = {};
+    let idx = 0;
+
+    const ITEMS = [
+      {
+        id:'r1', title:'Ситуация 1', valence:'positive',
+        text:'«Это было в январе. Стоял сильный мороз. Дети собирались идти домой. Они надевали шапки, пальто, тёплые ботинки, варежки. Первыми оделись дети из старшей группы. Когда они уже собирались выходить на улицу, одна девочка увидела малыша, который никак не мог одеться. Она подошла и помогла ему.»',
+        questions: ['Могла бы твоя мама подумать, что это сделал(а) ты?', 'А папа?', 'Похвалили бы они тебя?'],
+      },
+      {
+        id:'r2', title:'Ситуация 2', valence:'positive',
+        text:'«Дети шли на прогулку. На узкой дорожке, которая вела в сад, лежал кусок колючей проволоки. Все дети осторожно переступали через проволоку. А один мальчик, который шёл последним, наклонился, осторожно взял проволоку за кончик и отбросил её в сторону, чтобы она никому не мешала.»',
+        questions: ['Могла бы твоя мама подумать, что это сделал(а) ты?', 'А папа?', 'Похвалили бы они тебя?'],
+      },
+      {
+        id:'r3', title:'Ситуация 3', valence:'negative',
+        text:'«Таня попросила: «Дай мне поиграть с твоей куклой, я тебе дам поиграть с моей.» — «Да, возьми», — сказала Таня. Вечером, когда нужно было идти домой, Таня попросила свою куклу. Но девочка не вернула Тане куклу.»',
+        questions: ['Могла бы твоя мама подумать, что это сделал(а) ты?', 'А папа?', 'А если бы им сказали, что это ты не вернул(а) куклу?'],
+      },
+      {
+        id:'r4', title:'Ситуация 4', valence:'negative',
+        text:'«Дети рисовали. Маше нужен был красный карандаш, Диме — зелёный. А один мальчик захотел нарисовать лето. Ему нужно было много карандашей. Карандаши, которые дала ему воспитательница, у него поломались, и он стал забирать у других детей.»',
+        questions: ['Могла бы твоя мама подумать, что это сделал(а) ты?', 'А папа?', 'А если бы им всё-таки сказали, что это сделал(а) ты?'],
+      },
+    ];
+
+    const renderItem = () => {
+      if (idx >= ITEMS.length) { renderSummary(); return; }
+      const item = ITEMS[idx];
+      const pct  = Math.round(idx / ITEMS.length * 100);
+      const isPos = item.valence === 'positive';
+
+      topbar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:12.5px;color:var(--text-3)">${idx+1} из ${ITEMS.length}</span>
+          <div style="width:80px;height:5px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:var(--indigo);transition:width .3s"></div>
+          </div>
+        </div>`;
+
+      body.innerHTML = `
+        <div style="width:100%;max-width:700px">
+          <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;
+               background:${isPos?'var(--green-l)':'var(--rose-l)'};border:1px solid ${isPos?'rgba(22,163,74,.2)':'rgba(220,38,38,.2)'};
+               font-size:12px;font-weight:700;color:${isPos?'var(--green)':'var(--rose)'};margin-bottom:14px">
+            ${isPos ? '✓ Положительная ситуация' : '⚠ Ситуация с нарушением нормы'}
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:26px 30px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">${escHtml(item.title)} — читайте ребёнку вслух</div>
+            <div style="font-size:15px;color:var(--text-1);line-height:1.75;font-style:italic;border-left:3px solid var(--indigo-m);padding-left:16px">
+              ${escHtml(item.text)}
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:22px 26px;margin-bottom:16px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:14px">Вопросы к ребёнку</div>
+            ${item.questions.map((q,i) => `
+              <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+                <span style="width:22px;height:22px;border-radius:50%;background:var(--indigo-l);color:var(--indigo);
+                             font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px">${i+1}</span>
+                <span style="font-size:14px;color:var(--text-1);line-height:1.55">${escHtml(q)}</span>
+              </div>`).join('')}
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:20px 26px;margin-bottom:20px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">Ответы ребёнка / наблюдения</div>
+            <textarea class="input-field" id="pe-answer" style="height:100px;width:100%"
+              placeholder="Фиксируйте ответы дословно или кратко...">${escHtml(responses[item.id]||'')}</textarea>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            ${idx > 0 ? `<button class="btn btn-ghost" id="pe-prev">← Назад</button>` : '<div></div>'}
+            <button class="btn btn-primary" id="pe-next">
+              ${idx < ITEMS.length - 1 ? 'Далее →' : 'К заключению →'}
+            </button>
+          </div>
+        </div>`;
+
+      document.getElementById('pe-answer').addEventListener('input', e => { responses[item.id] = e.target.value; });
+      document.getElementById('pe-prev')?.addEventListener('click', () => { responses[item.id] = document.getElementById('pe-answer').value; idx--; renderItem(); });
+      document.getElementById('pe-next').addEventListener('click', () => { responses[item.id] = document.getElementById('pe-answer').value; idx++; renderItem(); });
+    };
+
+    const renderSummary = () => {
+      topbar.innerHTML = '';
+      body.innerHTML = `
+        <div style="width:100%;max-width:700px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:26px 30px;margin-bottom:16px">
+            <div style="font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:4px">Заключение специалиста</div>
+            <div style="font-size:13px;color:var(--text-3);margin-bottom:16px">
+              Анализируйте: как ребёнок представляет ожидания близких; реакция на норму vs нарушение; расхождение оценок мамы и папы; степень принятия норм.
+            </div>
+            <textarea class="input-field" id="pe-summary" style="height:160px;width:100%"
+              placeholder="Ребёнок идентифицирует/дистанцирует себя от персонажей... ожидания одобрения/порицания..."></textarea>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <button class="btn btn-ghost" id="pe-back">← Назад</button>
+            <button class="btn btn-primary" id="pe-finish">Завершить диагностику</button>
+          </div>
+        </div>`;
+
+      document.getElementById('pe-back').addEventListener('click', () => { idx--; renderItem(); });
+      document.getElementById('pe-finish').addEventListener('click', () => {
+        const summary = document.getElementById('pe-summary').value;
+        onDone({ responses: { ...responses }, summary });
+      });
+    };
+
+    renderItem();
+  },
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1905,4 +2555,267 @@ DiagPlayer.startCustom = async function(diagId, studentId) {
 
   const student = studentId ? await window.db.students.get(studentId) : null;
   DiagPlayer._runCustom(d, data, student);
+};
+
+// ── Повторный просмотр сохранённого результата ────────────────────────────────
+DiagPlayer.showStoredResult = async function(resultId, studentId) {
+  let row;
+  try {
+    row = await window.db.diagnostics.getResult(resultId);
+  } catch(e) {
+    toast('Не удалось загрузить результат', 'error');
+    return;
+  }
+  if (!row) { toast('Результат не найден', 'error'); return; }
+
+  const student = studentId ? await window.db.students.get(studentId) : null;
+
+  let scores  = {};
+  let answers = {};
+  try { scores  = JSON.parse(row.scores  || '{}'); } catch(e) {}
+  try { answers = JSON.parse(row.answers || '{}'); } catch(e) {}
+
+  // ── Встроенная методика ──────────────────────────────────────────────────
+  if (row.method_id) {
+    const method = getDiagMethod(row.method_id);
+    if (!method) {
+      // Показываем голый текст summary если методика неизвестна
+      DiagPlayer._showGenericStoredResult(row, student);
+      return;
+    }
+    const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
+    DiagPlayer._makeOverlay(method.name, sName);
+
+    // Пересчитываем интерпретацию из сохранённых данных (scores уже посчитаны)
+    // Для встроенных scores = { markers, risks, level, ... } или raw числа
+    // Реконструируем interp из сохранённых полей
+    const interp = {
+      level:   scores.level   || 'norm',
+      markers: scores.markers || [],
+      risks:   scores.risks   || [],
+      vkText:  scores.vkText  || null,
+    };
+
+    // Для ОСТ/САН/Эббингауза/Рокича/ЦО — пересчитываем interpret из score-данных
+    // score() не нужен т.к. scores уже хранит нужные поля (correct, detail, С/А/Н, ER, SR, ...)
+    if (!interp.markers.length) {
+      try {
+        const reinterp = method.interpret(scores);
+        interp.level   = reinterp.level   || interp.level;
+        interp.markers = reinterp.markers || [];
+        interp.risks   = reinterp.risks   || [];
+      } catch(e) {}
+    }
+
+    DiagPlayer._showResultScreen(method, scores, interp, student);
+    return;
+  }
+
+  // ── Пользовательский опросник v2 ─────────────────────────────────────────
+  if (row.diagnostic_id || row.diagnostic_name) {
+    let data = null;
+    try {
+      const raw = JSON.parse(row.diagnostic_questions || 'null');
+      if (raw?.version === 2) data = raw;
+    } catch(e) {}
+
+    if (data) {
+      // Есть полная структура — показываем полноценный экран результата
+      const diag = {
+        id:      row.diagnostic_id,
+        name:    row.diagnostic_name || 'Диагностика',
+        fill_by: row.fill_by || 'teacher',
+      };
+      const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
+      DiagPlayer._makeOverlay(diag.name, sName);
+      const total          = scores.total ?? 0;
+      const subscaleScores = scores.subscaleScores || {};
+      const summary        = row.summary || '';
+      showV2Result(DiagPlayer._el, diag, data, total, subscaleScores, summary, student, () => DiagPlayer.close(), resultId);
+      return;
+    }
+
+    // Диагностика удалена из БД или это v1 — показываем ответы из сохранённых данных
+    DiagPlayer._showAnswersOnly(row, answers, student);
+    return;
+  }
+
+  // ── Fallback: просто summary + markers/risks ──────────────────────────────
+  DiagPlayer._showGenericStoredResult(row, student);
+};
+
+DiagPlayer._showGenericStoredResult = function(row, student) {
+  const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
+  const name  = row.diagnostic_name || row.method_name || 'Диагностика';
+  const el    = DiagPlayer._makeOverlay(name, sName);
+
+  let scores = {};
+  try { scores = JSON.parse(row.scores || '{}'); } catch(e) {}
+
+  const LC = {
+    norm:      { col:'var(--green)', bg:'var(--green-l)', label:'Норма' },
+    attention: { col:'var(--amber)', bg:'var(--amber-l)', label:'Внимание' },
+    risk:      { col:'var(--rose)',  bg:'var(--rose-l)',  label:'Требует консультации' },
+    none:      { col:'var(--text-3)',bg:'var(--surface-2)', label:'—' },
+  };
+  const lc = LC[scores.level || 'none'] || LC.none;
+  const fmtDate = iso => { try { return new Date(iso).toLocaleDateString('ru-RU', {day:'numeric',month:'long',year:'numeric'}); } catch(e) { return iso||''; }};
+
+  document.getElementById('dp-body').innerHTML = `
+    <div style="width:100%;max-width:680px">
+      <div style="background:${lc.bg};border-radius:var(--r-xl);padding:20px 24px;margin-bottom:16px;
+           border:1px solid ${lc.col}30">
+        <div style="font-size:12px;font-weight:700;color:${lc.col};text-transform:uppercase;margin-bottom:4px">Результат</div>
+        <div style="font-size:20px;font-weight:700;color:${lc.col}">${lc.label}</div>
+        <div style="font-size:12.5px;color:var(--text-3);margin-top:6px">${fmtDate(row.completed_at)}</div>
+      </div>
+      ${row.summary ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:16px 20px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">Итог</div>
+        <div style="font-size:14px;color:var(--text-1);line-height:1.6">${escHtml(row.summary)}</div>
+      </div>` : ''}
+      ${(scores.markers||[]).length ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:16px 20px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">Показатели</div>
+        ${scores.markers.map(m => `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="color:var(--indigo)">▸</span>
+          <span style="font-size:13.5px;color:var(--text-1);line-height:1.5">${escHtml(m)}</span>
+        </div>`).join('')}
+      </div>` : ''}
+      ${(scores.risks||[]).length ? `<div style="background:var(--rose-l);border:1px solid #FECACA;border-radius:var(--r-xl);padding:16px 20px;margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--rose);text-transform:uppercase;margin-bottom:8px">Маркеры риска</div>
+        ${scores.risks.map(r => `<div style="font-size:13.5px;color:var(--rose);margin-bottom:5px">${escHtml(r)}</div>`).join('')}
+      </div>` : ''}
+      ${row.psychologist_notes?.trim() ? `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:16px 20px;margin-bottom:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">Заметки психолога</div>
+        <div style="font-size:13.5px;color:var(--text-1);line-height:1.65;white-space:pre-wrap">${escHtml(row.psychologist_notes)}</div>
+      </div>` : ''}
+      <button class="btn btn-ghost" id="gen-res-close">Закрыть</button>
+    </div>`;
+  document.getElementById('gen-res-close').addEventListener('click', () => DiagPlayer.close());
+};
+
+// ── Показ сохранённых ответов (v1 или удалённая диагностика) ─────────────────
+DiagPlayer._showAnswersOnly = function(row, answers, student) {
+  const sName = student ? `${student.first_name} ${student.last_name||''}` : null;
+  const name  = row.diagnostic_name || row.method_name || 'Диагностика';
+  const el    = DiagPlayer._makeOverlay(name, sName);
+
+  const fmtDate = iso => { try { return new Date(iso).toLocaleDateString('ru-RU', {day:'numeric',month:'long',year:'numeric'}); } catch(e) { return iso||''; }};
+
+  // Разбираем ответы: v1 = {answers:{id:{label}}, notes:{id:text}}, v2 = {elemId: {value/label/...}}
+  const isV1   = answers.answers && typeof answers.answers === 'object';
+  const rawAns = isV1 ? answers.answers : answers;
+  const rawNotes = isV1 ? (answers.notes || {}) : {};
+
+  const ansEntries = Object.entries(rawAns || {});
+  const noteEntries = Object.entries(rawNotes).filter(([,v]) => v?.toString().trim());
+
+  let scores = {};
+  try { scores = JSON.parse(row.scores || '{}'); } catch(e) {}
+
+  const LC = {
+    norm:      { col:'var(--green)', bg:'var(--green-l)', label:'Норма' },
+    attention: { col:'var(--amber)', bg:'var(--amber-l)', label:'Внимание' },
+    risk:      { col:'var(--rose)',  bg:'var(--rose-l)',  label:'Требует консультации' },
+    none:      { col:'var(--text-3)',bg:'var(--surface-2)', label:'—' },
+  };
+  const lc = LC[scores.level || 'none'] || LC.none;
+
+  document.getElementById('dp-body').innerHTML = `
+    <div style="width:100%;max-width:700px;display:flex;flex-direction:column;gap:14px">
+
+      <!-- Шапка -->
+      <div style="background:${lc.bg};border:1px solid ${lc.col}30;border-radius:var(--r-xl);padding:18px 22px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text-1)">${escHtml(name)}</div>
+            <div style="font-size:12.5px;color:var(--text-3);margin-top:3px">${fmtDate(row.completed_at)}</div>
+          </div>
+          ${scores.level && scores.level !== 'none' ? `
+            <span style="font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;
+                background:${lc.bg};color:${lc.col};border:1px solid ${lc.col}40">${lc.label}</span>` : ''}
+        </div>
+        ${row.summary ? `<div style="font-size:13.5px;color:var(--text-2);margin-top:10px;line-height:1.6">${escHtml(row.summary)}</div>` : ''}
+      </div>
+
+      <!-- Маркеры -->
+      ${(scores.markers||[]).length ? `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);padding:18px 22px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">Показатели</div>
+          ${scores.markers.map(m => `
+            <div style="display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--indigo);flex-shrink:0">▸</span>
+              <span style="font-size:13.5px;color:var(--text-1);line-height:1.5">${escHtml(m)}</span>
+            </div>`).join('')}
+        </div>` : ''}
+
+      <!-- Риски -->
+      ${(scores.risks||[]).length ? `
+        <div style="background:var(--rose-l);border:1px solid #FECACA;border-radius:var(--r-xl);padding:16px 20px">
+          <div style="font-size:11px;font-weight:700;color:var(--rose);text-transform:uppercase;margin-bottom:8px">Маркеры риска</div>
+          ${scores.risks.map(r => `<div style="font-size:13.5px;color:var(--rose);margin-bottom:4px;line-height:1.5">${escHtml(r)}</div>`).join('')}
+        </div>` : ''}
+
+      <!-- Ответы -->
+      ${ansEntries.length ? `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden">
+          <div style="padding:14px 20px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">
+              Ответы (${ansEntries.length})
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            ${ansEntries.map(([id, val], i) => {
+              let displayVal = '—';
+              if (val === null || val === undefined) displayVal = '—';
+              else if (typeof val === 'string')  displayVal = val;
+              else if (typeof val === 'number')  displayVal = String(val);
+              else if (typeof val === 'boolean') displayVal = val ? 'Да' : 'Нет';
+              else if (val.label  != null) displayVal = String(val.label);
+              else if (val.value  != null) displayVal = String(val.value);
+              else if (val.optLabel != null) displayVal = String(val.optLabel);
+              else if (val.text   != null) displayVal = String(val.text);
+              else displayVal = JSON.stringify(val);
+              return `<div style="display:flex;gap:12px;padding:11px 20px;
+                   border-bottom:1px solid var(--border);
+                   background:${i%2===0?'var(--surface)':'var(--surface-2)'}">
+                <span style="font-size:11px;font-weight:700;color:var(--text-4);min-width:24px;
+                     flex-shrink:0;margin-top:2px">${i+1}</span>
+                <div style="flex:1">
+                  <div style="font-size:13.5px;font-weight:500;color:var(--text-1);line-height:1.5">
+                    ${escHtml(displayVal)}
+                  </div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
+
+      <!-- Заметки педагога (v1) -->
+      ${noteEntries.length ? `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-xl);overflow:hidden">
+          <div style="padding:14px 20px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Заметки педагога</div>
+          </div>
+          <div style="display:flex;flex-direction:column">
+            ${noteEntries.map(([id, val], i) => `
+              <div style="display:flex;gap:12px;padding:11px 20px;
+                   border-bottom:1px solid var(--border);
+                   background:${i%2===0?'var(--surface)':'var(--surface-2)'}">
+                <span style="font-size:11px;font-weight:700;color:var(--text-4);min-width:24px;flex-shrink:0;margin-top:2px">${id}</span>
+                <div style="font-size:13.5px;color:var(--text-2);line-height:1.6">${escHtml(String(val))}</div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      <!-- Заметки психолога -->
+      ${row.psychologist_notes?.trim() ? `
+        <div style="background:var(--indigo-l);border:1px solid var(--indigo-m);border-radius:var(--r-xl);padding:18px 22px">
+          <div style="font-size:11px;font-weight:700;color:var(--indigo);text-transform:uppercase;margin-bottom:8px">Заметки психолога</div>
+          <div style="font-size:13.5px;color:var(--text-1);line-height:1.65;white-space:pre-wrap">${escHtml(row.psychologist_notes)}</div>
+        </div>` : ''}
+
+      <button class="btn btn-ghost" id="ao-close" style="align-self:flex-start">Закрыть</button>
+    </div>`;
+
+  document.getElementById('ao-close').addEventListener('click', () => DiagPlayer.close());
 };

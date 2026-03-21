@@ -272,7 +272,9 @@ ipcMain.handle('students:getHistory', (_, sid) => {
     FROM exercise_results er LEFT JOIN exercises e ON er.exercise_id = e.id
     WHERE er.student_id = ? ORDER BY er.completed_at DESC`, [sid]);
   const diagnostics = queryAll(`
-    SELECT dr.*, d.name as diagnostic_name
+    SELECT dr.id, dr.diagnostic_id, dr.method_id, dr.method_name,
+           dr.answers, dr.scores, dr.summary, dr.completed_at, dr.psychologist_notes,
+           d.name as diagnostic_name
     FROM diagnostic_results dr LEFT JOIN diagnostics d ON dr.diagnostic_id = d.id
     WHERE dr.student_id = ? ORDER BY dr.completed_at DESC`, [sid]);
   return { exercises, diagnostics };
@@ -382,6 +384,20 @@ ipcMain.handle('diagnostics:getHistory', (_, { diagnostic_id, student_id }) => {
   );
 });
 
+// Получить один результат диагностики по ID (для повторного просмотра)
+ipcMain.handle('diagnostics:getResult', (_, resultId) => {
+  try { run("ALTER TABLE diagnostic_results ADD COLUMN psychologist_notes TEXT DEFAULT ''"); } catch(e) {}
+  const row = queryOne(
+    `SELECT dr.id, dr.diagnostic_id, dr.method_id, dr.method_name,
+            dr.answers, dr.scores, dr.summary, dr.completed_at, dr.psychologist_notes,
+            d.name as diagnostic_name, d.questions as diagnostic_questions, d.fill_by
+     FROM diagnostic_results dr LEFT JOIN diagnostics d ON dr.diagnostic_id = d.id
+     WHERE dr.id = ?`,
+    [resultId]
+  );
+  return row || null;
+});
+
 // Обновить заметки психолога по результату
 ipcMain.handle('diagnostics:updateNotes', (_, { result_id, notes }) => {
   try { run("ALTER TABLE diagnostic_results ADD COLUMN psychologist_notes TEXT DEFAULT ''"); } catch(e) {}
@@ -462,23 +478,33 @@ ipcMain.handle('report:generate', async (_, studentId) => {
     WHERE er.student_id = ? ORDER BY er.completed_at DESC`, [studentId]);
 
   const diagRows = queryAll(`
-    SELECT dr.*, d.name as diagnostic_name, dr.method_id, dr.method_name
+    SELECT dr.id, dr.diagnostic_id, dr.method_id, dr.method_name,
+           dr.answers, dr.scores, dr.summary, dr.completed_at, dr.psychologist_notes,
+           d.name as diagnostic_name, d.questions as diagnostic_questions, d.description as diagnostic_desc
     FROM diagnostic_results dr LEFT JOIN diagnostics d ON dr.diagnostic_id = d.id
     WHERE dr.student_id = ? ORDER BY dr.completed_at DESC`, [studentId]);
 
   const diag_results = diagRows.map(r => {
-    let scores = {}, raw_scores = {};
-    try { scores = JSON.parse(r.scores || '{}'); raw_scores = scores; } catch(e) {}
+    let scores = {}, raw_scores = {}, answers = {}, diagData = null;
+    try { scores   = JSON.parse(r.scores  || '{}'); raw_scores = scores; } catch(e) {}
+    try { answers  = JSON.parse(r.answers || '{}'); } catch(e) {}
+    try {
+      const raw = JSON.parse(r.diagnostic_questions || 'null');
+      if (raw?.version === 2) diagData = raw;
+    } catch(e) {}
     return {
-      name:         r.diagnostic_name || r.method_name || 'Диагностика',
-      method_name:  r.method_name,
-      method_id:    r.method_id,
-      completed_at: r.completed_at,
-      summary:      r.summary || '',
-      level:        scores.level || 'norm',
-      markers:      scores.markers || [],
-      risks:        scores.risks   || [],
+      name:               r.diagnostic_name || r.method_name || 'Диагностика',
+      method_name:        r.method_name,
+      method_id:          r.method_id,
+      completed_at:       r.completed_at,
+      summary:            r.summary || '',
+      level:              scores.level   || 'norm',
+      markers:            scores.markers || [],
+      risks:              scores.risks   || [],
+      psychologist_notes: r.psychologist_notes || '',
       raw_scores,
+      answers,
+      diag_data:          diagData,
     };
   });
 

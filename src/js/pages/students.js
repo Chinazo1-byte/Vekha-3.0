@@ -319,12 +319,32 @@ async function openStudentProfile(id) {
                 <table class="history-table">
                   <thead><tr><th>Методика</th><th>Результат</th><th>Дата</th></tr></thead>
                   <tbody>
-                    ${diagList.map(r => `
-                      <tr>
-                        <td style="font-weight:500">${escHtml(r.diagnostic_name||'—')}</td>
-                        <td style="font-size:13px;color:var(--text-2)">${escHtml(r.summary||'—')}</td>
-                        <td class="text-muted text-sm">${fmtDate(r.completed_at)}</td>
-                      </tr>`).join('')}
+                    ${diagList.map(r => {
+                      let lvl = 'none';
+                      try { const sc = JSON.parse(r.scores||'{}'); lvl = sc.level||'none'; } catch(e){}
+                      const LC = {
+                        norm:      {col:'var(--green)',bg:'var(--green-l)',lbl:'Норма'},
+                        attention: {col:'var(--amber)',bg:'var(--amber-l)',lbl:'Внимание'},
+                        risk:      {col:'var(--rose)', bg:'var(--rose-l)', lbl:'Риск'},
+                        none:      {col:'var(--text-4)',bg:'var(--surface-2)',lbl:'—'},
+                      };
+                      const lc = LC[lvl] || LC.none;
+                      return `<tr class="diag-history-row" data-result-id="${r.id}" style="cursor:pointer"
+                          title="Нажмите для просмотра полного результата">
+                        <td>
+                          <div style="font-weight:500;color:var(--text-1)">${escHtml(r.diagnostic_name||r.method_name||'—')}</div>
+                          ${r.method_id ? `<div style="font-size:11px;color:var(--text-4);margin-top:1px">${escHtml(r.method_id)}</div>` : ''}
+                        </td>
+                        <td>
+                          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+                            ${lvl !== 'none' ? `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;
+                                background:${lc.bg};color:${lc.col};border:1px solid ${lc.col}30">${lc.lbl}</span>` : ''}
+                            <span style="font-size:12.5px;color:var(--text-2)">${escHtml(r.summary||'—')}</span>
+                          </div>
+                        </td>
+                        <td class="text-muted text-sm" style="white-space:nowrap">${fmtDate(r.completed_at)}</td>
+                      </tr>`;
+                    }).join('')}
                   </tbody>
                 </table>
               </div>`}
@@ -338,6 +358,18 @@ async function openStudentProfile(id) {
   });
   el.querySelector('#profile-edit').addEventListener('click', () => openAddStudentModal(s));
   el.querySelector('#profile-pdf').addEventListener('click', () => exportStudentPdf(id, el));
+
+  // Клик по строке истории диагностики — открыть полный результат
+  el.querySelectorAll('.diag-history-row').forEach(row => {
+    row.addEventListener('mouseenter', () => { row.style.background = 'var(--surface-2)'; });
+    row.addEventListener('mouseleave', () => { row.style.background = ''; });
+    row.addEventListener('click', () => {
+      const resultId = parseInt(row.dataset.resultId);
+      if (!isNaN(resultId)) {
+        DiagPlayer.showStoredResult(resultId, id);
+      }
+    });
+  });
 
   // Вкладки
   el.querySelectorAll('.profile-tab').forEach(tab => {

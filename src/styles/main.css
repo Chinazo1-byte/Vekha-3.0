@@ -21,6 +21,8 @@
   --rose-l:     #FDEDED;
   --teal:       #0D9488;
   --teal-l:     #CCFBF1;
+  --purple:     #7C3AED;
+  --purple-l:   #F3E8FF;
   --font-ui:    'Onest', -apple-system, sans-serif;
   --font-title: 'Playfair Display', Georgia, serif;
   --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-2xl: 24px;
@@ -59,6 +61,8 @@ body.dark {
   --rose-l:    #2A0E0E;
   --teal:      #14B8A6;
   --teal-l:    #0A2420;
+  --purple:    #9F67F0;
+  --purple-l:  #1E1030;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.3),0 1px 2px rgba(0,0,0,.2);
   --shadow-md: 0 4px 12px rgba(0,0,0,.4),0 2px 4px rgba(0,0,0,.2);
   --shadow-lg: 0 8px 24px rgba(0,0,0,.5),0 3px 8px rgba(0,0,0,.3);
@@ -280,23 +284,24 @@ textarea.input-field{resize:vertical;min-height:80px;line-height:1.5}
 
 /* ── PLAYER ─────────────────────────────────────────────────────────────────── */
 .player-overlay{position:fixed;inset:0;background:#FAFAF8;z-index:700;display:flex;flex-direction:column;animation:pageFade .2s ease}
-.player-topbar{height:80px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 48px;gap:28px;flex-shrink:0}
-.player-progress-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.player-topbar{height:64px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 36px;gap:20px;flex-shrink:0}
+.player-progress-bar{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden}
 .player-progress-fill{height:100%;background:var(--indigo);border-radius:3px;transition:width .4s ease}
 .player-counter{font-size:13px;color:var(--text-3);font-weight:500;white-space:nowrap}
-.player-body{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 60px;overflow:auto}
-.player-card{background:var(--surface);border-radius:var(--r-2xl);box-shadow:var(--shadow-lg);width:100%;max-width:1100px;padding:56px 72px;animation:pageFade .25s ease}
-.player-question{font-family:var(--font-title);font-size:32px;color:var(--text-1);margin-bottom:40px;line-height:1.4;text-align:center}
-.player-question img{max-width:500px;max-height:340px;border-radius:var(--r-lg);object-fit:contain;display:block;margin:16px auto 0}
-.player-options{display:grid;gap:16px}
+.player-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:32px 48px;overflow-y:auto;overflow-x:hidden}
+.player-body::before,.player-body::after{content:'';flex:1;min-height:0}
+.player-card{background:var(--surface);border-radius:var(--r-2xl);box-shadow:var(--shadow-lg);width:100%;max-width:1100px;padding:36px 48px;animation:pageFade .25s ease}
+.player-question{font-family:var(--font-title);font-size:26px;color:var(--text-1);margin-bottom:28px;line-height:1.4;text-align:center}
+.player-question img{max-width:460px;max-height:280px;border-radius:var(--r-lg);object-fit:contain;display:block;margin:14px auto 0}
+.player-options{display:grid;gap:12px}
 .player-options.cols-2{grid-template-columns:1fr 1fr}
 .player-options.cols-3{grid-template-columns:1fr 1fr 1fr}
-.player-opt{padding:20px 18px;border:2px solid var(--border);border-radius:var(--r-xl);cursor:pointer;transition:all .18s;font-size:20px;font-weight:600;color:var(--text-1);background:var(--surface);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:100px}
+.player-opt{padding:16px 14px;border:2px solid var(--border);border-radius:var(--r-xl);cursor:pointer;transition:all .18s;font-size:18px;font-weight:600;color:var(--text-1);background:var(--surface);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:80px}
 .player-opt:hover{border-color:var(--indigo);background:var(--indigo-l);color:var(--indigo)}
 .player-opt.correct{border-color:var(--green)!important;background:var(--green-l)!important;color:var(--green)!important}
 .player-opt.wrong{border-color:var(--rose)!important;background:var(--rose-l)!important;color:var(--rose)!important;animation:shake .3s ease}
 .player-opt.disabled{pointer-events:none;opacity:.5}
-.player-opt img{width:100%;max-width:200px;height:180px;object-fit:contain;border-radius:var(--r-md);padding:4px}
+.player-opt img{width:100%;max-width:180px;height:140px;object-fit:contain;border-radius:var(--r-md);padding:4px}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 
 /* Pairs game */
